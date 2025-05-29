@@ -82,13 +82,20 @@ const db = mysql.createConnection({
     database: process.env.DB_NAME,
     socketPath: `/cloudsql/${process.env.INSTANCE_CONNECTION_NAME}`,
     acquireTimeout: 60000,
-    timeout: 60000,
+    // Remove 'timeout' - it's not a valid option for mysql2
+    connectTimeout: 60000,  // Use connectTimeout instead
+    ssl: false // Explicitly disable SSL for Unix socket connections
 });
 
 // Test database connection
 db.connect((err) => {
     if (err) {
         console.error('Database connection failed:', err);
+        console.error('Connection config:', {
+            user: process.env.DB_USER,
+            database: process.env.DB_NAME,
+            socketPath: `/cloudsql/${process.env.INSTANCE_CONNECTION_NAME}`,
+        });
         process.exit(1);
     }
     console.log('Database connected successfully');
@@ -99,7 +106,16 @@ db.on('error', (err) => {
     console.error('Database error:', err);
     if (err.code === 'PROTOCOL_CONNECTION_LOST') {
         console.log('Attempting to reconnect...');
-        db.connect();
+        // For production, you might want to implement a more robust reconnection strategy
+        setTimeout(() => {
+            db.connect((reconnectErr) => {
+                if (reconnectErr) {
+                    console.error('Reconnection failed:', reconnectErr);
+                } else {
+                    console.log('Reconnected to database');
+                }
+            });
+        }, 2000);
     }
 });
 
