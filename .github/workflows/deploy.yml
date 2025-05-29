@@ -10,7 +10,7 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   GAR_LOCATION: asia-south2
-  SERVICE: resume-portal
+  SERVICE: docker-resume
   REGION: asia-south2
 
 jobs:
