@@ -12,6 +12,7 @@ const Joi = require('joi'); // Add this package: npm install joi
 require('dotenv').config();
 
 const app = express();
+const router = express.Router();
 
 // Validate required environment variables
 const requiredEnvVars = ['JWT_SECRET', 'DB_USER', 'DB_PASS', 'DB_NAME', 'INSTANCE_CONNECTION_NAME'];
@@ -33,7 +34,9 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve static files
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, 'public')));
+
+
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads', 'resumes');
@@ -76,16 +79,24 @@ const upload = multer({
 });
 
 // MySQL Connection - Fixed to use single consistent connection
-const db = mysql.createConnection({
-    user: process.env.DB_USER,
-    password: process.env.DB_PASS,
-    database: process.env.DB_NAME,
-    socketPath: `/cloudsql/${process.env.INSTANCE_CONNECTION_NAME}`,
-    acquireTimeout: 60000,
-    // Remove 'timeout' - it's not a valid option for mysql2
-    connectTimeout: 60000,  // Use connectTimeout instead
-    ssl: false // Explicitly disable SSL for Unix socket connections
-});
+const dbConfig = {
+  user: process.env.DB_USER,
+  password: process.env.DB_PASS,
+  database: process.env.DB_NAME,
+  connectTimeout: 60000, // 60 seconds
+  ssl: false // Not needed for Cloud SQL unless you're using public IP + SSL
+};
+
+if (process.env.USE_SOCKET === 'true') {
+  // For Cloud Run / App Engine deployment using Unix socket
+  dbConfig.socketPath = `/cloudsql/${process.env.INSTANCE_CONNECTION_NAME}`;
+} else {
+  // For local development using Cloud SQL Auth Proxy over TCP
+  dbConfig.host = process.env.DB_HOST || '127.0.0.1';
+  dbConfig.port = parseInt(process.env.DB_PORT) || 3306;
+}
+
+const db = mysql.createConnection(dbConfig);
 
 // Test database connection
 db.connect((err) => {
@@ -94,7 +105,7 @@ db.connect((err) => {
         console.error('Connection config:', {
             user: process.env.DB_USER,
             database: process.env.DB_NAME,
-            socketPath: `/cloudsql/${process.env.INSTANCE_CONNECTION_NAME}`,
+            // socketPath: `/cloudsql/${process.env.INSTANCE_CONNECTION_NAME}`,
         });
         process.exit(1);
     }
@@ -193,24 +204,24 @@ const requireAdmin = (req, res, next) => {
 
 // Rate limiting for auth endpoints (basic implementation)
 const authAttempts = new Map();
-const rateLimitAuth = (req, res, next) => {
-    const ip = req.ip || req.connection.remoteAddress;
-    const now = Date.now();
-    const attempts = authAttempts.get(ip) || { count: 0, resetTime: now + 15 * 60 * 1000 };
+// const rateLimitAuth = (req, res, next) => {
+//     const ip = req.ip || req.connection.remoteAddress;
+//     const now = Date.now();
+//     const attempts = authAttempts.get(ip) || { count: 0, resetTime: now + 15 * 60 * 1000 };
     
-    if (now > attempts.resetTime) {
-        attempts.count = 0;
-        attempts.resetTime = now + 15 * 60 * 1000;
-    }
+//     if (now > attempts.resetTime) {
+//         attempts.count = 0;
+//         attempts.resetTime = now + 15 * 60 * 1000;
+//     }
     
-    if (attempts.count >= 5) {
-        return res.status(429).json({ error: 'Too many attempts. Please try again later.' });
-    }
+//     if (attempts.count >= 5) {
+//         return res.status(429).json({ error: 'Too many attempts. Please try again later.' });
+//     }
     
-    attempts.count++;
-    authAttempts.set(ip, attempts);
-    next();
-};
+//     attempts.count++;
+//     authAttempts.set(ip, attempts);
+//     next();
+// };
 
 // Create admin user with secure hashed password
 async function createAdminUser() {
@@ -262,7 +273,7 @@ async function createAdminUser() {
 createAdminUser();
 
 // Register endpoint (for students only)
-app.post('/api/register', rateLimitAuth, validateInput(registerSchema), async (req, res) => {
+app.post('/api/register', validateInput(registerSchema), async (req, res) => {
     const { fullName, email, password } = req.body;
     
     try {
@@ -315,7 +326,7 @@ app.post('/api/register', rateLimitAuth, validateInput(registerSchema), async (r
 });
 
 // Login endpoint
-app.post('/api/login', rateLimitAuth, validateInput(loginSchema), async (req, res) => {
+app.post('/api/login', validateInput(loginSchema), async (req, res) => {
     const { email, password } = req.body;
     
     try {
@@ -332,7 +343,6 @@ app.post('/api/login', rateLimitAuth, validateInput(loginSchema), async (req, re
             
         const user = users[0];
         const validPassword = await bcrypt.compare(password, user.password_hash);
-            
         if (!validPassword) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
@@ -795,6 +805,7 @@ process.on('SIGINT', () => {
 });
 
 const PORT = process.env.PORT || 3000;
+// app.use(router);
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);

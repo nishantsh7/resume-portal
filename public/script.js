@@ -355,51 +355,44 @@ async function downloadResume(event, submissionId) {
 }
 
 // Download all resumes as zip
+// async function downloadAllResumes() {
+//     try {
+//         const token = localStorage.getItem('token');
+//         window.location.href = `http://localhost:3000/api/admin/download-all?token=${token}`;
+//     } catch (error) {
+//         console.error('Error downloading resumes:', error);
+//         alert('Failed to download resumes');
+//     }
+// }
+
 async function downloadAllResumes() {
     try {
         const token = localStorage.getItem('token');
-        window.location.href = `http://localhost:3000/api/admin/download-all?token=${token}`;
-    } catch (error) {
-        console.error('Error downloading resumes:', error);
-        alert('Failed to download resumes');
-    }
-}
 
-// Download all records as Excel
-async function downloadAllRecords() {
-    try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            alert('Please login again');
-            return;
-        }
-
-        const response = await fetch('http://localhost:3000/api/admin/download-records', {
+        const response = await fetch('http://localhost:3000/api/admin/download-all', {
             headers: {
-                'Authorization': `Bearer ${token}`
+                Authorization: `Bearer ${token}`
             }
         });
 
         if (!response.ok) {
-            const data = await response.json();
-            throw new Error(data.error || 'Failed to download records');
+            throw new Error('Download failed');
         }
 
-        // Get the blob from the response
         const blob = await response.blob();
-        
-        // Create a download link and trigger it
-        const url = window.URL.createObjectURL(blob);
+        const url = URL.createObjectURL(blob);
+
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'submissions.xlsx';
+        a.download = 'all-resumes.zip';
         document.body.appendChild(a);
         a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+        a.remove();
+
+        URL.revokeObjectURL(url);
     } catch (error) {
-        console.error('Error downloading records:', error);
-        alert('Failed to download records: ' + error.message);
+        console.error('Error downloading resumes:', error);
+        alert('Failed to download resumes');
     }
 }
 
