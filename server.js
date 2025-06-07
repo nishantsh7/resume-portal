@@ -162,6 +162,7 @@ const requireAdmin = (req, res, next) => {
 
 async function createAdminUser() {
     try {
+        const adminEmail = 'team@stabforge.com'
         const adminPassword = process.env.ADMIN_PASSWORD || 'TempAdmin@123';
         const hashedPassword = await bcrypt.hash(adminPassword, 12);
         
