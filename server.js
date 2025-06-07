@@ -18,17 +18,6 @@ const Submission = require('./models/Submission');
 const app = express();
 
 
-
-
-// Validate required environment variables
-const requiredEnvVars = ['JWT_SECRET', 'DB_USER', 'DB_PASS', 'DB_NAME', 'INSTANCE_CONNECTION_NAME'];
-const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
-
-if (missingEnvVars.length > 0) {
-    console.error('Missing required environment variables:', missingEnvVars.join(', '));
-    process.exit(1);
-}
-
 // Middleware
 app.use(cors({
     origin: process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',') : ['http://localhost:3000'],
