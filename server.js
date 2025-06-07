@@ -74,7 +74,7 @@ const upload = multer({
 });
 
 // MySQL Connection - Fixed to use single consistent connection
-mongoose.connect(env.CONNECTION_STRING, {
+mongoose.connect(process.env.CONNECTION_STRING, {
     useNewUrlParser: true,
     useUnifiedTopology: true
 })
