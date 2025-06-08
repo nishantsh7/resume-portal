@@ -34,7 +34,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 
 // Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, 'uploads', 'resumes');
+const uploadsDir = path.join('/tmp', 'resumes');
+
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -47,15 +48,15 @@ const storage = multer.diskStorage({
     filename: function (req, file, cb) {
         // Create a safe filename
         let safeName = 'resume';
-        
+
         if (req.body && req.body.fullName) {
             safeName = req.body.fullName.replace(/[^a-zA-Z0-9]/g, '_');
         }
-        
+
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         const finalName = `${safeName}-${uniqueSuffix}${path.extname(file.originalname)}`;
-        
-        req.resumeFileName = finalName;
+
+        req.resumeFileName = finalName; // Store filename for later use if needed
         cb(null, finalName);
     }
 });
@@ -72,7 +73,6 @@ const upload = multer({
         fileSize: 5 * 1024 * 1024 // 5MB limit
     }
 });
-
 // MySQL Connection - Fixed to use single consistent connection
 mongoose.connect(process.env.CONNECTION_STRING, {
     useNewUrlParser: true,
@@ -91,45 +91,7 @@ mongoose.connect(process.env.CONNECTION_STRING, {
 // JWT Secret - No fallback for security
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// Input validation schemas
-// const registerSchema = Joi.object({
-//     fullName: Joi.string().min(2).max(100).required().trim(),
-//     email: Joi.string().email().required().lowercase().trim(),
-//     password: Joi.string().min(8).max(128).required()
-//         .pattern(new RegExp('^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]'))
-//         .messages({
-//             'string.pattern.base': 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
-//         })
-// });
 
-// const loginSchema = Joi.object({
-//     email: Joi.string().email().required().lowercase().trim(),
-//     password: Joi.string().required()
-// });
-
-// const submissionSchema = Joi.object({
-//     fullName: Joi.string().min(2).max(100).required().trim(),
-//     mobile: Joi.string().pattern(/^[+]?[\d\s\-()]{10,15}$/).required().messages({
-//         'string.pattern.base': 'Please enter a valid mobile number'
-//     }),
-//     email: Joi.string().email().required().lowercase().trim(),
-//     institution: Joi.string().min(2).max(200).required().trim(),
-//     bio: Joi.string().max(1000).optional().trim()
-// });
-
-// Validation middleware
-// const validateInput = (schema) => {
-//     return (req, res, next) => {
-//         const { error, value } = schema.validate(req.body);
-//         if (error) {
-//             return res.status(400).json({ 
-//                 error: error.details[0].message 
-//             });
-//         }
-//         req.body = value; // Use validated and sanitized data
-//         next();
-//     };
-// };
 
 // Middleware to verify JWT token
 const verifyToken = (req, res, next) => {
