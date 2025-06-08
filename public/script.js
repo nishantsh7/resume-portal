@@ -11,7 +11,7 @@ function checkAuth() {
         return;
     }
 
-    // Redirect based on role 122.162.145.62
+    // Redirect based on role
     if (userRole === 'admin') {
         if (currentPage.includes('dashboard.html')) {
             window.location.href = 'admin.html';
@@ -35,7 +35,7 @@ async function handleLogin(event) {
         spinner.style.display = 'inline-block';
         console.log('Attempting login...');
         
-        const response = await fetch('http://localhost:3000/api/login', {
+        const response = await fetch('https://resume-portal-907r.onrender.com/api/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -260,7 +260,7 @@ async function deleteSubmission(submissionId) {
     }
 
     try {
-        const response = await fetch(`http://localhost:3000/api/admin/submission/${submissionId}`, {
+        const response = await fetch(`https://resume-portal-907r.onrender.com/api/admin/submission/${submissionId}`, {
             method: 'DELETE',
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -284,7 +284,7 @@ async function deleteSubmission(submissionId) {
 // Handle qualification status change
 async function updateQualificationStatus(submissionId, status) {
     try {
-        const response = await fetch(`http://localhost:3000/api/submissions/${submissionId}/status`, {
+        const response = await fetch(`https://resume-portal-907r.onrender.com/api/submissions/${submissionId}/status`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -317,7 +317,7 @@ async function viewResume(submissionId) {
 
         const pdfViewer = document.getElementById('pdfViewer');
         // Create a blob URL from the fetch response
-        const response = await fetch(`http://localhost:3000/api/resume/view/${submissionId}`, {
+        const response = await fetch(`https://resume-portal-907r.onrender.com/api/resume/view/${submissionId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -348,7 +348,7 @@ async function viewResume(submissionId) {
 // Load all submissions for admin
 async function loadAllSubmissions() {
     try {
-        const response = await fetch('http://localhost:3000/api/submissions', {
+        const response = await fetch('https://resume-portal-907r.onrender.com/api/submissions', {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
@@ -414,7 +414,7 @@ async function downloadResume(event, submissionId) {
     const token = localStorage.getItem('token');
     
     try {
-        const response = await fetch(`http://localhost:3000/api/resume/${submissionId}`, {
+        const response = await fetch(`https://resume-portal-907r.onrender.com/api/resume/${submissionId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -435,7 +435,7 @@ async function downloadResume(event, submissionId) {
         document.body.removeChild(a);
 
         // Update the downloaded status
-        await fetch(`http://localhost:3000/api/submissions/${submissionId}/downloaded`, {
+        await fetch(`https://resume-portal-907r.onrender.com/api/submissions/${submissionId}/downloaded`, {
             method: 'PUT',
             headers: {
                 'Authorization': `Bearer ${token}`
@@ -459,7 +459,7 @@ async function downloadAllResumes() {
             return;
         }
 
-        const response = await fetch('http://localhost:3000/api/download-all-resumes', {
+        const response = await fetch('https://resume-portal-907r.onrender.com/api/download-all-resumes', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
@@ -493,7 +493,7 @@ async function downloadAllRecords() {
             return;
         }
 
-        const response = await fetch('http://localhost:3000/api/download-records', {
+        const response = await fetch('https://resume-portal-907r.onrender.com/api/download-records', {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
