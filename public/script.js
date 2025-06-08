@@ -89,12 +89,12 @@ async function handleSignup(event) {
     try {
         spinner.style.display = 'inline-block';
         
-        const response = await fetch('http://localhost:3000/api/register', {
+        const response = await fetch('https://resume-portal-907r.onrender.com/api/register', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ fullName, email, password })
+            body: JSON.stringify({ fullName, email, passwordHash: password  })
         });
         
         const data = await response.json();
@@ -146,7 +146,7 @@ async function handleProfileSubmit(event) {
     try {
         spinner.style.display = 'inline-block';
         
-        const response = await fetch('http://localhost:3000/api/submit', {
+        const response = await fetch('https://resume-portal-907r.onrender.com/api/submit', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -180,7 +180,7 @@ async function handleProfileSubmit(event) {
 // Load user's submission
 async function loadSubmission() {
     try {
-        const response = await fetch('http://localhost:3000/api/submission', {
+        const response = await fetch('https://resume-portal-907r.onrender.com/api/submission', {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
             }

@@ -198,9 +198,9 @@ createAdminUser();
 
 // Register endpoint (for students only)
 app.post('/api/register', async (req, res) => {
-    const { fullName, email, password } = req.body;
+    const { fullName, email, passwordHash } = req.body;
     
-    if (!fullName || !email || !password) {
+    if (!fullName || !email || !passwordHash) {
         return res.status(400).json({ error: 'All fields are required' });
     }
     
@@ -214,7 +214,7 @@ app.post('/api/register', async (req, res) => {
         const user = await User.create({
             fullName,
             email,
-            passwordHash: password,
+            passwordHash,
             role: 'student'
         });
 
