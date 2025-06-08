@@ -164,21 +164,27 @@ async function createAdminUser() {
     try {
         const adminEmail = 'team@stabforge.com'
         const adminPassword = process.env.ADMIN_PASSWORD || 'TempAdmin@123';
-        const hashedPassword = await bcrypt.hash(adminPassword, 12);
+        hashedPassword = await bcrypt.hash(adminPassword, 10);
         
          const existingAdmin = await User.findOne({ email: adminEmail });
 
-        if (!existingAdmin) {
-            // Create admin user
-           const adminUser = new User({
-                fullName: 'Admin',
-                email: adminEmail,
-                passwordHash: hashedPassword,
-                role: 'admin'
-            });
-            await adminUser.save();
-            console.log('Admin user created successfully');
-        }
+if (!existingAdmin) {
+    // Create admin user
+    const adminUser = new User({
+        fullName: 'Admin',
+        email: adminEmail,
+        passwordHash: adminPassword,
+        role: 'admin'
+    });
+    await adminUser.save();
+    console.log('Admin user created successfully');
+} else {
+    // Update the password of existing admin
+    existingAdmin.passwordHash = adminPassword;
+    await existingAdmin.save();
+    console.log('Admin password updated successfully');
+}
+
     } catch (error) {
         console.error('Error creating admin user:', error);
     }

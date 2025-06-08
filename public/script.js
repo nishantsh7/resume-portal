@@ -11,7 +11,7 @@ function checkAuth() {
         return;
     }
 
-    // Redirect based on role
+    // Redirect based on role 122.162.145.62
     if (userRole === 'admin') {
         if (currentPage.includes('dashboard.html')) {
             window.location.href = 'admin.html';
