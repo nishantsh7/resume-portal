@@ -13,7 +13,7 @@ const mongoose = require('mongoose');
 require('dotenv').config();
 const User = require('./models/User');
 const Submission = require('./models/Submission');
-const TpoSubmission = require('../models/TpoSubmission'); // Your schema
+const TpoSubmission = require('./models/TpoSubmission'); // Your schema
 const { uploadToGoogleDrive } = require('./utils/googledrive');
 
 

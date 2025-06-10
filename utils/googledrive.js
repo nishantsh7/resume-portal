@@ -2,10 +2,12 @@ const { google } = require('googleapis');
 const stream = require('stream');
 
 
-const serviceAccountKey = JSON.parse(process.env.GCP_SERVICE_KEY.replace(/\\n/g, '\n'));
+const encodedKey = process.env.GCP_SERVICE_KEY_BASE64;
+const decodedKey = Buffer.from(encodedKey, 'base64').toString('utf8');
+const credentials = JSON.parse(decodedKey);
 
 const auth = new google.auth.GoogleAuth({
-  credentials: serviceAccountKey,
+  credentials: credentials,
   scopes: ['https://www.googleapis.com/auth/drive.file'],
 });
 
