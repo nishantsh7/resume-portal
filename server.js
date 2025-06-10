@@ -347,7 +347,7 @@ app.post('/api/tpo/upload-resumes',verifyToken, uploads.array('resumeFiles'), as
   }
 });
 
-const TpoSubmission = require("../models/TpoSubmission");
+
 
 // Replace this with actual auth logic
 const getCurrentTPOEmail = (req) => {
@@ -396,6 +396,7 @@ app.get('/api/admin/tpo-submissions',verifyToken,requireAdmin, async(req, res) =
     res.status(500).json({ error: 'Failed to fetch submissions' });
   }
 });
+
 
 // Admin: Get all submissions
 app.get('/api/submissions', verifyToken, requireAdmin, async (req, res) => {
