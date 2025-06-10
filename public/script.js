@@ -219,7 +219,7 @@ function handleTPOSubmit(event) {
       event.preventDefault();
       const form = document.getElementById('tpoUploadForm');
       const formData = new FormData(form);
-      formData.append(userEmail);
+      formData.append("email",userEmail);
 
       const spinner = document.getElementById('uploadSpinner');
       spinner.innerText = 'Uploading...';

@@ -13,7 +13,7 @@ const auth = new google.auth.GoogleAuth({
 
 const drive = google.drive({ version: 'v3', auth });
 
-async function uploadToGoogleDrive(file,userEmail) {
+async function uploadToGoogleDrive(file,email) {
   const bufferStream = new stream.PassThrough();
   bufferStream.end(file.buffer);
 
@@ -35,7 +35,7 @@ async function uploadToGoogleDrive(file,userEmail) {
     requestBody: {
       role: 'reader',
       type: 'user',
-      emailAddress: userEmail
+      emailAddress: email
     },
   });
 
