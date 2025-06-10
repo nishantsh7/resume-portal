@@ -13,6 +13,9 @@ const mongoose = require('mongoose');
 require('dotenv').config();
 const User = require('./models/User');
 const Submission = require('./models/Submission');
+const TpoSubmission = require('../models/TpoSubmission'); // Your schema
+const { uploadToGoogleDrive } = require('./utils/googledrive');
+
 
 
 const app = express();
@@ -140,13 +143,7 @@ if (!existingAdmin) {
     });
     await adminUser.save();
     console.log('Admin user created successfully');
-} else {
-    // Update the password of existing admin
-    existingAdmin.passwordHash = adminPassword;
-    await existingAdmin.save();
-    console.log('Admin password updated successfully');
 }
-
     } catch (error) {
         console.error('Error creating admin user:', error);
     }
@@ -160,9 +157,9 @@ createAdminUser();
 
 // Register endpoint (for students only)
 app.post('/api/register', async (req, res) => {
-    const { fullName, email, passwordHash } = req.body;
+    const { fullName, email, passwordHash,role } = req.body;
     
-    if (!fullName || !email || !passwordHash) {
+    if (!fullName || !email || !passwordHash || !role) {
         return res.status(400).json({ error: 'All fields are required' });
     }
     
@@ -177,10 +174,10 @@ app.post('/api/register', async (req, res) => {
             fullName,
             email,
             passwordHash,
-            role: 'student'
+            role
         });
 
-        const token = jwt.sign({ userId: user._id, role: 'student' }, JWT_SECRET);
+        const token = jwt.sign({ userId: user._id, role: role }, JWT_SECRET);
         res.status(201).json({ token, message: 'Registration successful' });
     } catch (error) {
         console.error('Registration error:', error);
@@ -271,7 +268,8 @@ app.post('/api/submit', verifyToken, upload.single('resume'), async (req, res) =
         // Only update resume data if a new file was uploaded
         if (req.file) {
             updateData.resumeFilename = req.resumeFileName;
-            updateData.resumePath = `uploads/resumes/${req.resumeFileName}`;
+            updateData.resumePath = `/tmp/resumes/${req.resumeFileName}`;
+
         }
 
         if (submission) {
@@ -294,7 +292,8 @@ app.post('/api/submit', verifyToken, upload.single('resume'), async (req, res) =
                 userId: req.userId,
                 ...updateData,
                 resumeFilename: req.resumeFileName,
-                resumePath: `uploads/resumes/${req.resumeFileName}`
+                resumePath : `/tmp/resumes/${req.resumeFileName}`
+
             });
             res.status(201).json({
                 message: 'Profile submitted successfully',
@@ -307,6 +306,72 @@ app.post('/api/submit', verifyToken, upload.single('resume'), async (req, res) =
     }
 });
 
+// Initialized with OAuth2 or service accoun
+
+
+// const router = express.Router();
+// const upload = multer({ storage: multer.memoryStorage() });
+const uploads = multer({ storage: multer.memoryStorage() });
+
+
+app.post('/api/tpo/upload-resumes',verifyToken, uploads.array('resumeFiles'), async (req, res) => {
+  try {
+    const { driveName, branch, batchYear, notes, userEmail } = req.body;
+    const files = req.files;
+
+    const savedFiles = await Promise.all(
+      files.map(async (file) => {
+        const driveRes = await uploadToGoogleDrive(file,userEmail);
+        return {
+          originalName: file.originalname,
+          mimeType: file.mimetype,
+          driveFileId: driveRes.id,
+          driveViewLink: driveRes.webViewLink,
+        };
+      })
+    );
+
+    await TpoSubmission.create({
+      tpoId: req.user._id,
+      driveName,
+      branch,
+      batchYear,
+      notes,
+      resumes: savedFiles,
+    });
+
+    res.json({ message: `${files.length} resumes uploaded successfully.` });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Upload failed. Please try again.' });
+  }
+});
+
+const TpoSubmission = require("../models/TpoSubmission");
+
+// Replace this with actual auth logic
+const getCurrentTPOEmail = (req) => {
+  return req.user?.email || "tpo@example.com"; // temporary fallback
+};
+
+app.get("/api/tpo/recent-submissions", async (req, res) => {
+  try {
+    const email = getCurrentTPOEmail(req);
+    const submissions = await TpoSubmission.find({ uploadedBy: email })
+      .sort({ uploadedAt: -1 })
+      .limit(10);
+
+    res.json(submissions);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch uploads." });
+  }
+});
+
+
+
+
+
+
 
 // Get user's submission
 app.get('/api/submission', verifyToken, async (req, res) => {
@@ -317,6 +382,19 @@ app.get('/api/submission', verifyToken, async (req, res) => {
         console.error('Error fetching submission:', error);
         res.status(500).json({ error: 'Server error' });
     }
+});
+
+app.get('/api/admin/tpo-submissions',verifyToken,requireAdmin, async(req, res) => {
+  try {
+    const submissions = await TpoSubmission.find()
+      .populate('uploadedBy', 'fullName email') // Add TPO details
+      .sort({ createdAt: -1 }); // Newest first
+
+    res.json(submissions);
+  } catch (error) {
+    console.error('Error fetching TPO submissions:', error);
+    res.status(500).json({ error: 'Failed to fetch submissions' });
+  }
 });
 
 // Admin: Get all submissions

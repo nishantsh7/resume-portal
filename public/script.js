@@ -16,13 +16,23 @@ function checkAuth() {
         if (currentPage.includes('dashboard.html')) {
             window.location.href = 'admin.html';
         }
-    } else {
+    } else if(userRole==="student"){
         if (currentPage.includes('admin.html')) {
             window.location.href = 'dashboard.html';
         }
     }
+    else if(userRole==="tpo"){
+        if (currentPage.includes('admin.html')) {
+            window.location.href = 'tpo-dashboard.html';
+        }
+    }
+    else{
+        if(currentPage.includes('admin.html')){
+            window.location.href='recruiter-dashboard.html'
+        }
+    }
 }
-
+const userEmail= localStorage.getItem('userEmail');
 // Handle login form submission
 async function handleLogin(event) {
     event.preventDefault();
@@ -56,13 +66,20 @@ async function handleLogin(event) {
         localStorage.setItem('userRole', data.user.role);
         localStorage.setItem('userEmail', data.user.email);
         localStorage.setItem('userName', data.user.fullName || data.user.email);
+        if(data.user.collegeName)
+        localStorage.setItem('collegeName',data.user.collegeName);
         
         // Redirect based on role
-        if (data.user.role === 'admin') {
+        if (data.user.role === 'admin') 
             window.location.href = 'admin.html';
-        } else {
+        else if(data.user.role==='student')
             window.location.href = 'dashboard.html';
-        }
+        else if(data.user.role==='tpo')
+            window.location.href='tpo-dashboard.html';
+        else 
+        window.location.href='recruiter-dashboard.html';
+
+        
     } catch (error) {
         console.error('Login error:', error);
         alert(error.message || 'Failed to connect to server. Please make sure the server is running.');
@@ -70,6 +87,24 @@ async function handleLogin(event) {
         spinner.style.display = 'none';
     }
 }
+document.addEventListener("DOMContentLoaded", function () {
+  const roleRadios = document.querySelectorAll('input[name="role"]');
+  const collegeContainer = document.getElementById('collegeFieldContainer');
+  const collegeInput = document.getElementById('collegeName');
+
+  roleRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (radio.value === 'student' || radio.value === 'tpo') {
+        collegeContainer.style.display = 'block';
+        collegeInput.required = true;
+      } else {
+        collegeContainer.style.display = 'none';
+        collegeInput.required = false;
+      }
+    });
+  });
+});
+
 
 // Handle signup form submission
 async function handleSignup(event) {
@@ -80,6 +115,9 @@ async function handleSignup(event) {
     const password = document.getElementById('password').value;
     const confirmPassword = document.getElementById('confirmPassword').value;
     const spinner = document.getElementById('signupSpinner');
+    const role = document.querySelector('input[name="role"]:checked').value;
+    
+
     
     if (password !== confirmPassword) {
         alert('Passwords do not match');
@@ -94,7 +132,7 @@ async function handleSignup(event) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ fullName, email, passwordHash: password  })
+            body: JSON.stringify({ fullName, email, passwordHash: password, role  })
         });
         
         const data = await response.json();
@@ -176,6 +214,91 @@ async function handleProfileSubmit(event) {
         spinner.style.display = 'none';
     }
 }
+
+function handleTPOSubmit(event) {
+      event.preventDefault();
+      const form = document.getElementById('tpoUploadForm');
+      const formData = new FormData(form);
+      formData.append(userEmail);
+
+      const spinner = document.getElementById('uploadSpinner');
+      spinner.innerText = 'Uploading...';
+
+      fetch('/api/tpo/upload-resumes', {
+        method: 'POST',
+        body: formData,
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          alert(data.message || 'Upload successful!');
+          form.reset();
+        })
+        .catch((err) => {
+          alert('Upload failed. Please try again.');
+          console.error(err);
+        })
+        .finally(() => {
+          spinner.innerText = '';
+        });
+    }
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadRecentUploads();
+});
+
+async function loadRecentUploads() {
+  const recentUploadsContainer = document.getElementById("recentUploads");
+  try {
+    const res = await fetch("/api/tpo/recent-submissions", {
+      headers: {
+        "Content-Type": "application/json",
+        // optionally add auth token if required
+      },
+    });
+    const data = await res.json();
+
+    if (!data || data.length === 0) {
+      recentUploadsContainer.innerHTML = "<p>No uploads found.</p>";
+      return;
+    }
+
+    let tableHTML = `
+      <table class="table table-bordered table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Drive Name</th>
+            <th>Branch</th>
+            <th>Batch Year</th>
+            <th>Upload Date</th>
+            <th>Resumes</th>
+            <th>Drive Folder</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    data.forEach(upload => {
+      const formattedDate = new Date(upload.uploadedAt).toLocaleString();
+      const fileCount = upload.resumes?.length || 0;
+      tableHTML += `
+        <tr>
+          <td>${upload.driveName}</td>
+          <td>${upload.branch}</td>
+          <td>${upload.batchYear}</td>
+          <td>${formattedDate}</td>
+          <td>${fileCount}</td>
+          <td><a href="https://drive.google.com/drive/folders/${upload.folderId}" target="_blank">View Folder</a></td>
+        </tr>
+      `;
+    });
+
+    tableHTML += "</tbody></table>";
+    recentUploadsContainer.innerHTML = tableHTML;
+  } catch (err) {
+    recentUploadsContainer.innerHTML = "<p class='text-danger'>Failed to load uploads.</p>";
+  }
+}
+
 
 // Load user's submission
 async function loadSubmission() {
@@ -344,6 +467,47 @@ async function viewResume(submissionId) {
         alert('Failed to view resume: ' + error.message);
     }
 }
+
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  const tpoTab = document.getElementById('tpo-tab');
+  tpoTab.addEventListener('click', fetchTpoSubmissions);
+});
+
+async function fetchTpoSubmissions() {
+  try {
+    const response = await fetch('/api/admin/tpo-submissions');
+    const submissions = await response.json();
+
+    const tbody = document.querySelector('#tpoTable tbody');
+    tbody.innerHTML = '';
+
+    submissions.forEach(sub => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${sub.driveName}</td>
+        <td>${sub.branch}</td>
+        <td>${sub.batchYear}</td>
+        <td>${sub.uploadedBy?.email || 'N/A'}</td>
+        <td>${new Date(sub.createdAt).toLocaleDateString()}</td>
+        <td>${sub.notes || ''}</td>
+        <td>
+          ${sub.files.map(f => `<a href="${f.fileUrl}" target="_blank">Resume</a>`).join('<br>')}
+        </td>
+        <td>
+          <button class="btn btn-sm btn-primary" onclick="sendToRecruiter('${sub._id}', 'tpo')">
+            <i class="fas fa-share-square"></i> Send
+          </button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+  } catch (error) {
+    console.error('Error fetching TPO submissions:', error);
+  }
+}
+
 
 // Load all submissions for admin
 async function loadAllSubmissions() {

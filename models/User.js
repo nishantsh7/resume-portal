@@ -18,9 +18,10 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['admin', 'student'],
+        enum: ['admin', 'student','tpo', 'recruiter'],
         default: 'student'
-    }
+    },
+    collegeName: { type: String }
 }, {
     timestamps: true
 });

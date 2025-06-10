@@ -42,6 +42,26 @@
                                     <i class="fas fa-eye toggle-password" onclick="togglePassword('confirmPassword')"></i>
                                 </div>
                             </div>
+                            <div class="mb-3">
+                                <label class="form-label d-block fw-semibold">Select Role:</label>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="role" id="roleStudent" value="student" checked>
+                                    <label class="form-check-label" for="roleStudent">Student</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="role" id="roleTPO" value="tpo">
+                                    <label class="form-check-label" for="roleTPO">TPO</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="role" id="roleRecruiter" value="recruiter">
+                                    <label class="form-check-label" for="roleRecruiter">Recruiter</label>
+                                </div>
+                            </div>
+                            <div class="form-floating mb-3" id="collegeFieldContainer" style="display: none;">
+                            <input type="text" class="form-control" id="collegeName" placeholder="Your College Name">
+                            <label for="collegeName"><i class="fas fa-university me-2"></i>College Name</label>
+                            </div>
+
                             <div class="d-grid gap-2">
                                 <button type="submit" class="btn btn-primary">
                                     <span class="spinner" id="signupSpinner"></span>
