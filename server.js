@@ -354,7 +354,7 @@ const getCurrentTPOEmail = (req) => {
   return req.user?.email || "tpo@example.com"; // temporary fallback
 };
 
-app.get("/api/tpo/recent-submissions", async (req, res) => {
+app.get("/api/tpo/recent-submissions",verifyToken,async (req, res) => {
   try {
     const email = getCurrentTPOEmail(req);
     const submissions = await TpoSubmission.find({ uploadedBy: email })

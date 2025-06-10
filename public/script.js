@@ -215,89 +215,200 @@ async function handleProfileSubmit(event) {
     }
 }
 
-function handleTPOSubmit(event) {
-      event.preventDefault();
-      const form = document.getElementById('tpoUploadForm');
-      const formData = new FormData(form);
-      formData.append("email",userEmail);
+async function handleTPOSubmit(event) {
+    event.preventDefault(); // Prevent default form submission
 
-      const spinner = document.getElementById('uploadSpinner');
-      spinner.innerText = 'Uploading...';
+    const form = document.getElementById('tpoUploadForm');
+    const formData = new FormData(form);
 
-      fetch('/api/tpo/upload-resumes', {
-        method: 'POST',
-        body: formData,
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          alert(data.message || 'Upload successful!');
-          form.reset();
-        })
-        .catch((err) => {
-          alert('Upload failed. Please try again.');
-          console.error(err);
-        })
-        .finally(() => {
-          spinner.innerText = '';
-        });
+    // Assuming 'userEmail' is a global variable or accessible in this scope,
+    // which was likely set from localStorage after login.
+    const userEmail = localStorage.getItem('userEmail'); // Retrieve user email from localStorage
+    if (userEmail) {
+        formData.append("email", userEmail);
+    } else {
+        console.warn("User email not found in localStorage. Proceeding without it.");
+        // Consider handling this case more robustly, maybe redirecting to login.
     }
+
+    const spinner = document.getElementById('uploadSpinner');
+    if (spinner) { // Check if spinner element exists
+        spinner.innerText = 'Uploading...';
+        spinner.style.display = 'inline-block'; // Make sure spinner is visible
+    }
+
+    // --- Retrieve the JWT token from localStorage ---
+    const jwtToken = localStorage.getItem('token'); // Get the token stored during login
+
+    if (!jwtToken) {
+        // If no token is found, the user isn't authenticated.
+        alert('You are not logged in. Please log in to upload resumes.');
+        if (spinner) {
+            spinner.innerText = '';
+            spinner.style.display = 'none';
+        }
+        window.location.href = '/tpo-login.html'; // Redirect to your TPO login page
+        return; // Stop the function execution
+    }
+
+    try {
+        const response = await fetch('https://resume-portal-907r.onrender.com/api/tpo/upload-resumes', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                // --- Crucial: Add the Authorization header with the JWT ---
+                'Authorization': `Bearer ${jwtToken}`,
+                // No need to set 'Content-Type': 'multipart/form-data' explicitly for FormData,
+                // the browser handles it correctly with the boundary.
+            },
+        });
+
+        // Parse the JSON response
+        const data = await response.json();
+
+        if (response.ok) {
+            // Successful upload (status 200-299)
+            alert(data.message || 'Resumes uploaded successfully!');
+            form.reset(); // Clear the form fields
+        } else if (response.status === 401) {
+            // Specifically handle Unauthorized errors
+            console.error('Upload failed: 401 Unauthorized', data.error);
+            alert(`Session expired or unauthorized. Please log in again. Error: ${data.error || 'Unknown'}`);
+            // Clear expired token and redirect to login
+            localStorage.removeItem('token');
+            localStorage.removeItem('userRole');
+            localStorage.removeItem('userEmail');
+            localStorage.removeItem('userName');
+            localStorage.removeItem('collegeName');
+            window.location.href = '/tpo-login.html';
+        } else {
+            // Handle other non-OK HTTP statuses (e.g., 400, 403, 500)
+            console.error(`Upload failed: Status ${response.status}`, data.error);
+            alert(`Upload failed: ${data.error || 'An unexpected error occurred. Please try again.'}`);
+        }
+    } catch (err) {
+        // Handle network errors or issues with the fetch operation itself
+        console.error('Network or unexpected error during upload:', err);
+        alert('Could not connect to the server or an unexpected error occurred. Please check your internet connection and try again.');
+    } finally {
+        // Ensure spinner is hidden regardless of success or failure
+        if (spinner) {
+            spinner.innerText = '';
+            spinner.style.display = 'none';
+        }
+    }
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   await loadRecentUploads();
 });
 
 async function loadRecentUploads() {
-  const recentUploadsContainer = document.getElementById("recentUploads");
-  try {
-    const res = await fetch("/api/tpo/recent-submissions", {
-      headers: {
-        "Content-Type": "application/json",
-        // optionally add auth token if required
-      },
-    });
-    const data = await res.json();
-
-    if (!data || data.length === 0) {
-      recentUploadsContainer.innerHTML = "<p>No uploads found.</p>";
-      return;
+    const recentUploadsContainer = document.getElementById("recentUploads");
+    if (!recentUploadsContainer) {
+        console.error("Recent uploads container not found.");
+        return; // Exit if the container isn't there
     }
 
-    let tableHTML = `
-      <table class="table table-bordered table-hover">
-        <thead class="table-light">
-          <tr>
-            <th>Drive Name</th>
-            <th>Branch</th>
-            <th>Batch Year</th>
-            <th>Upload Date</th>
-            <th>Resumes</th>
-            <th>Drive Folder</th>
-          </tr>
-        </thead>
-        <tbody>
-    `;
+    // 1. Get the JWT token from localStorage
+    const jwtToken = localStorage.getItem('token'); // Use the same 'token' key as your login script
 
-    data.forEach(upload => {
-      const formattedDate = new Date(upload.uploadedAt).toLocaleString();
-      const fileCount = upload.resumes?.length || 0;
-      tableHTML += `
-        <tr>
-          <td>${upload.driveName}</td>
-          <td>${upload.branch}</td>
-          <td>${upload.batchYear}</td>
-          <td>${formattedDate}</td>
-          <td>${fileCount}</td>
-          <td><a href="https://drive.google.com/drive/folders/${upload.folderId}" target="_blank">View Folder</a></td>
-        </tr>
-      `;
-    });
+    if (!jwtToken) {
+        console.error('No JWT token found. User not authenticated for recent uploads.');
+        recentUploadsContainer.innerHTML = "<p class='text-danger'>Please log in to view recent uploads.</p>";
+        // Optionally, redirect to login page if this function is called on a page that requires authentication
+        // window.location.href = '/tpo-login.html'; // Redirect to your TPO login page
+        return; // Stop execution if no token
+    }
 
-    tableHTML += "</tbody></table>";
-    recentUploadsContainer.innerHTML = tableHTML;
-  } catch (err) {
-    recentUploadsContainer.innerHTML = "<p class='text-danger'>Failed to load uploads.</p>";
-  }
+    try {
+        const res = await fetch("https://resume-portal-907r.onrender.com/api/tpo/recent-submissions", {
+            method: 'GET', // Explicitly state the method for clarity
+            headers: {
+                "Content-Type": "application/json",
+                // --- Crucial: Add the Authorization header with the JWT ---
+                "Authorization": `Bearer ${jwtToken}`,
+            },
+        });
+
+        // Parse the JSON response
+        const data = await res.json();
+
+        if (!res.ok) {
+            // Handle HTTP errors (e.g., 401, 403, 500)
+            if (res.status === 401) {
+                console.error('Authentication failed for recent uploads:', data.error);
+                recentUploadsContainer.innerHTML = `<p class='text-danger'>Session expired or unauthorized. Please log in again. Error: ${data.error || 'Unknown'}</p>`;
+                // Clear expired token and redirect to login
+                localStorage.removeItem('token');
+                localStorage.removeItem('userRole');
+                localStorage.removeItem('userEmail');
+                localStorage.removeItem('userName');
+                localStorage.removeItem('collegeName');
+                window.location.href = '/tpo-login.html'; // Redirect to your TPO login page
+            } else if (res.status === 403) {
+                console.error('Access denied for recent uploads:', data.error);
+                recentUploadsContainer.innerHTML = `<p class='text-danger'>Access denied: ${data.error || 'You do not have permission to view these uploads.'}</p>`;
+            } else {
+                console.error(`Error fetching recent uploads: Status ${res.status}`, data.error);
+                recentUploadsContainer.innerHTML = `<p class='text-danger'>Failed to load uploads: ${data.error || 'An unexpected error occurred.'}</p>`;
+            }
+            return; // Stop execution after handling the error
+        }
+
+        // --- If response.ok is true, proceed with rendering ---
+        if (!data || data.length === 0) {
+            recentUploadsContainer.innerHTML = "<p>No recent uploads found.</p>";
+            return;
+        }
+
+        let tableHTML = `
+            <table class="table table-bordered table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Drive Name</th>
+                        <th>Branch</th>
+                        <th>Batch Year</th>
+                        <th>Upload Date</th>
+                        <th>Resumes Count</th>
+                        <th>Drive Folder</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        data.forEach(upload => {
+            const formattedDate = new Date(upload.uploadedAt).toLocaleString();
+            const fileCount = upload.resumes?.length || 0; // Use optional chaining for safety
+            tableHTML += `
+                <tr>
+                    <td>${upload.driveName || 'N/A'}</td>
+                    <td>${upload.branch || 'N/A'}</td>
+                    <td>${upload.batchYear || 'N/A'}</td>
+                    <td>${formattedDate}</td>
+                    <td>${fileCount}</td>
+                    <td>
+                        ${upload.folderId 
+                            ? `<a href="https://drive.google.com/drive/folders/${upload.folderId}" target="_blank">View Folder</a>`
+                            : 'N/A'
+                        }
+                    </td>
+                </tr>
+            `;
+        });
+
+        tableHTML += "</tbody></table>";
+        recentUploadsContainer.innerHTML = tableHTML;
+
+    } catch (err) {
+        // Handle network errors or issues with the fetch operation itself
+        console.error('Network or unexpected error loading recent uploads:', err);
+        recentUploadsContainer.innerHTML = "<p class='text-danger'>Could not connect to the server or an unexpected error occurred while loading uploads.</p>";
+    }
 }
+
+// Don't forget to call this function when your TPO dashboard loads, e.g.:
+// document.addEventListener('DOMContentLoaded', loadRecentUploads);
 
 
 // Load user's submission
@@ -476,37 +587,92 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function fetchTpoSubmissions() {
-  try {
-    const response = await fetch('/api/admin/tpo-submissions');
-    const submissions = await response.json();
+    // 1. Get the JWT token from localStorage
+    const jwtToken = localStorage.getItem('token'); // This should be the same 'token' you store on login
 
-    const tbody = document.querySelector('#tpoTable tbody');
-    tbody.innerHTML = '';
+    if (!jwtToken) {
+        console.error('No JWT token found for fetching TPO submissions. User not authenticated.');
+        alert('You are not logged in or your session has expired. Please log in again.');
+        // Optionally, redirect to login page if this function is called on a page that requires authentication
+        window.location.href = '/login.html'; // Or your specific admin/tpo login page
+        return; // Stop execution if no token
+    }
 
-    submissions.forEach(sub => {
-      const row = document.createElement('tr');
-      row.innerHTML = `
-        <td>${sub.driveName}</td>
-        <td>${sub.branch}</td>
-        <td>${sub.batchYear}</td>
-        <td>${sub.uploadedBy?.email || 'N/A'}</td>
-        <td>${new Date(sub.createdAt).toLocaleDateString()}</td>
-        <td>${sub.notes || ''}</td>
-        <td>
-          ${sub.files.map(f => `<a href="${f.fileUrl}" target="_blank">Resume</a>`).join('<br>')}
-        </td>
-        <td>
-          <button class="btn btn-sm btn-primary" onclick="sendToRecruiter('${sub._id}', 'tpo')">
-            <i class="fas fa-share-square"></i> Send
-          </button>
-        </td>
-      `;
-      tbody.appendChild(row);
-    });
-  } catch (error) {
-    console.error('Error fetching TPO submissions:', error);
-  }
+    try {
+        const response = await fetch('https://resume-portal-907r.onrender.com/api/admin/tpo-submissions', {
+            method: 'GET', // Assuming it's a GET request
+            headers: {
+                'Authorization': `Bearer ${jwtToken}`, // Add the Authorization header
+                'Content-Type': 'application/json' // Good practice to include this for JSON APIs
+            }
+        });
+
+        const submissions = await response.json();
+
+        if (!response.ok) {
+            // Handle HTTP errors (e.g., 401, 403, 500)
+            if (response.status === 401) {
+                console.error('Authentication failed for TPO submissions:', submissions.error);
+                alert(`Authentication failed: ${submissions.error || 'Your session has expired or you are unauthorized.'}. Please log in again.`);
+                // Clear invalid token and redirect to login
+                localStorage.removeItem('token');
+                localStorage.removeItem('userRole'); // Clear other related items too
+                localStorage.removeItem('userEmail');
+                localStorage.removeItem('userName');
+                localStorage.removeItem('collegeName');
+                window.location.href = '/login.html'; // Or your specific admin/tpo login page
+            } else if (response.status === 403) {
+                console.error('Access denied for TPO submissions:', submissions.error);
+                alert(`Access denied: ${submissions.error || 'You do not have permission to view these submissions.'}`);
+            } else {
+                console.error(`Error fetching TPO submissions: Status ${response.status}`, submissions.error);
+                alert(`Failed to fetch TPO submissions: ${submissions.error || 'An unexpected error occurred.'}`);
+            }
+            return; // Stop execution after handling the error
+        }
+
+        const tbody = document.querySelector('#tpoTable tbody');
+        if (!tbody) {
+            console.error('Table body element (#tpoTable tbody) not found.');
+            return; // Exit if the table body isn't there
+        }
+        tbody.innerHTML = ''; // Clear existing rows
+
+        if (submissions.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center">No TPO submissions found.</td></tr>';
+            return;
+        }
+
+        submissions.forEach(sub => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${sub.driveName || 'N/A'}</td>
+                <td>${sub.branch || 'N/A'}</td>
+                <td>${sub.batchYear || 'N/A'}</td>
+                <td>${sub.uploadedBy?.email || 'N/A'}</td>
+                <td>${new Date(sub.createdAt).toLocaleDateString()}</td>
+                <td>${sub.notes || ''}</td>
+                <td>
+                    ${sub.files && sub.files.length > 0
+                        ? sub.files.map(f => `<a href="${f.fileUrl}" target="_blank">Resume</a>`).join('<br>')
+                        : 'No resumes'
+                    }
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-primary" onclick="sendToRecruiter('${sub._id}', 'tpo')">
+                        <i class="fas fa-share-square"></i> Send
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+    } catch (error) {
+        console.error('Network or unexpected error fetching TPO submissions:', error);
+        alert('Could not connect to the server or an unexpected error occurred while fetching submissions.');
+    }
 }
+
+
 
 
 // Load all submissions for admin
