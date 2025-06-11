@@ -477,14 +477,14 @@ app.get('/api/resume/view/:id', verifyToken, async (req, res) => {
             return res.status(403).json({ error: 'Access denied' });
         }
 
-        const filePath = path.join(__dirname, submission.resumePath);
+        const filePath = submission.resumePath; // Use directly since it's absolute
         
         if (fs.existsSync(filePath)) {
-            // Set content type for PDF
             res.setHeader('Content-Type', 'application/pdf');
             res.setHeader('Content-Disposition', 'inline; filename=' + submission.resumeFilename);
             res.sendFile(filePath);
         } else {
+            console.log('File not found at:', filePath); // Debug log
             res.status(404).json({ error: 'Resume file not found' });
         }
     } catch (error) {
