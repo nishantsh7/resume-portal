@@ -154,6 +154,7 @@ async function handleSignup(event) {
 async function handleProfileSubmit(event) {
     event.preventDefault();
     
+    
     const fullName = document.getElementById('fullName').value;
     const mobile = document.getElementById('mobile').value;
     const email = document.getElementById('email').value;
@@ -296,7 +297,7 @@ async function handleTPOSubmit(event) {
             localStorage.removeItem('userEmail');
             localStorage.removeItem('userName');
             localStorage.removeItem('collegeName');
-            window.location.href = '/tpo-login.html';
+            window.location.href = 'signup.html';
         } else {
             console.error(`Upload failed: Status ${response.status}`, data.error);
             alert(`Upload failed: ${data.error || 'An unexpected error occurred. Please try again.'}`);

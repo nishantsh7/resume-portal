@@ -1,4 +1,11 @@
 const mongoose = require('mongoose');
+const fileSchema = new mongoose.Schema({
+  originalName: String,
+  mimeType: String,
+  size: Number,
+  driveFileId: String, // ID of the file on Google Drive
+  driveFileUrl: String, // Optional direct link
+}, { _id: false });
 
 const submissionSchema = new mongoose.Schema({
     userId: {
@@ -26,12 +33,8 @@ const submissionSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    resumeFilename: {
-        type: String
-    },
-    resumePath: {
-        type: String
-    },
+      resume: [fileSchema], // Embedded array of file metadata
+    
     isDownloaded: {
         type: Boolean,
         default: false

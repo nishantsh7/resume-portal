@@ -288,13 +288,21 @@ app.post('/api/submit', verifyToken, upload.single('resume'), async (req, res) =
             if (!req.file) {
                 return res.status(400).json({ error: 'Resume file is required for initial submission' });
             }
+            const driveRes = await uploadToGoogleDrive(req.file, req.body.email);
+             const resume ={originalName: file.originalname,
+            mimeType: file.mimetype,
+            driveFileId: driveRes.id,
+            driveViewLink: driveRes.webViewLink}
+
             submission = await Submission.create({
                 userId: req.userId,
                 ...updateData,
-                resumeFilename: req.resumeFileName,
-                resumePath : `/tmp/resumes/${req.resumeFileName}`
+                resume:resume
 
             });
+            
+
+
             res.status(201).json({
                 message: 'Profile submitted successfully',
                 submission
