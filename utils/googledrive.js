@@ -1,10 +1,11 @@
 const { google } = require('googleapis');
 const stream = require('stream');
+const fs = require('fs');
 
+const path = '/etc/secrets/resume-service.json';
 
-const encodedKey = process.env.GCP_SERVICE_KEY_BASE64;
-const decodedKey = Buffer.from(encodedKey, 'base64').toString('utf8');
-const credentials = JSON.parse(decodedKey);
+const raw = fs.readFileSync(path);
+const credentials = JSON.parse(raw);
 
 const auth = new google.auth.GoogleAuth({
   credentials: credentials,
