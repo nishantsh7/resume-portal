@@ -310,9 +310,9 @@ async function handleTPOSubmit(event) {
         }
     }
 }
-document.addEventListener('DOMContentLoaded', async () => {
-  await loadRecentUploads();
-});
+// document.addEventListener('DOMContentLoaded', async () => {
+//   await loadRecentUploads();
+// });
 
 async function loadRecentUploads() {
     const recentUploadsContainer = document.getElementById("recentUploads");
@@ -338,6 +338,7 @@ async function loadRecentUploads() {
         clearUserSession();
         return;
     }
+   
 
     // Show loading state
     recentUploadsContainer.innerHTML = "<p>Loading recent uploads...</p>";
@@ -997,6 +998,7 @@ function handleLogout() {
 // Initialize page
 function initializePage() {
     checkAuth();
+    const userRole= localStorage.getItem('userRole')
     
     // Set user name in navbar
     const userNameElement = document.getElementById('userName');
@@ -1008,9 +1010,11 @@ function initializePage() {
     // Load appropriate content based on page
     if (window.location.pathname.includes('admin.html')) {
         loadAllSubmissions();
-    } else if (window.location.pathname.includes('dashboard.html')) {
+    } else if (window.location.pathname.includes('dashboard.html') && userRole==='student') {
         loadSubmission();
     }
+    else if (window.location.pathname.includes('tpo-dashboard.html')&& userRole==='tpo')
+        loadRecentUploads();
 }
 
 // Call initialize function when page loads
