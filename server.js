@@ -350,6 +350,7 @@ app.post('/api/tpo/upload-resumes', verifyToken, uploads.array('resumeFiles'), a
 
     const submission = await TpoSubmission.create({
       tpoId: req.userId,
+      madeBy:userEmail,
       driveName,
       branch,
       batchYear,
@@ -370,7 +371,8 @@ app.post('/api/tpo/upload-resumes', verifyToken, uploads.array('resumeFiles'), a
 
 app.get("/api/tpo/recent-submissions",verifyToken,async (req, res) => {
   try {
-    const submissions = await TpoSubmission.find({ tpoId: req.userId })
+    const email= req.email;
+    const submissions = await TpoSubmission.find({ madeBy:email })
       .sort({ uploadedAt: -1 })
       .limit(10);
 

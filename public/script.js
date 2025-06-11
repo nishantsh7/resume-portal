@@ -219,6 +219,7 @@ async function handleTPOSubmit(event) {
     event.preventDefault();
 
     const form = document.getElementById('tpoUploadForm');
+    
     const formData = new FormData();
     
     // Get form fields manually
