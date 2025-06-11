@@ -9,6 +9,7 @@ const fileSchema = new mongoose.Schema({
 }, { _id: false });
 
 const tpoSubmissionSchema = new mongoose.Schema({
+  madeBy: {type:String, required:true},
   driveName: { type: String, required: true },
   branch: { type: String, required: true },
   batchYear: { type: Number, required: true },

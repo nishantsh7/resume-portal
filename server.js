@@ -316,9 +316,6 @@ const uploads = multer({ storage: multer.memoryStorage() });
 
 app.post('/api/tpo/upload-resumes', verifyToken, uploads.array('resumeFiles'), async (req, res) => {
   try {
-       
-    console.log('req.userid:', req.userid);
-    
     const { driveName, branch, batchYear, notes, userEmail } = req.body;
     const files = req.files;
 
@@ -327,8 +324,10 @@ app.post('/api/tpo/upload-resumes', verifyToken, uploads.array('resumeFiles'), a
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
-    console.log('Request body:', req.body); // Debug log
-    console.log('Files count:', files.length); // Debug log
+    // Debug logs
+    console.log('Request body:', req.body);
+    console.log('Files count:', files.length);
+    console.log('req.user:', req.user); // Debug user object
 
     const savedFiles = await Promise.all(
       files.map(async (file, index) => {
@@ -348,12 +347,13 @@ app.post('/api/tpo/upload-resumes', verifyToken, uploads.array('resumeFiles'), a
       })
     );
 
+    // Create submission according to your schema
     const submission = await TpoSubmission.create({
-      tpoId: req.userId,
-      madeBy:userEmail,
+      madeBy: userEmail, // Required string field - using email from form
+      uploadedBy: req.user._id, // ObjectId reference to User
       driveName,
       branch,
-      batchYear,
+      batchYear: parseInt(batchYear), // Ensure it's a number
       notes,
       resumes: savedFiles,
     });
@@ -368,20 +368,6 @@ app.post('/api/tpo/upload-resumes', verifyToken, uploads.array('resumeFiles'), a
     });
   }
 });
-
-app.get("/api/tpo/recent-submissions",verifyToken,async (req, res) => {
-  try {
-    const email= req.email;
-    const submissions = await TpoSubmission.find({ madeBy:email })
-      .sort({ uploadedAt: -1 })
-      .limit(10);
-
-    res.json(submissions);
-  } catch (err) {
-    res.status(500).json({ error: "No uploads yet." });
-  }
-});
-
 
 
 
