@@ -350,7 +350,7 @@ app.post('/api/tpo/upload-resumes', verifyToken, uploads.array('resumeFiles'), a
     // Create submission according to your schema
     const submission = await TpoSubmission.create({
       madeBy: userEmail, // Required string field - using email from form
-      uploadedBy: req.user._id, // ObjectId reference to User
+      uploadedBy: req.userId, // ObjectId reference to User
       driveName,
       branch,
       batchYear: parseInt(batchYear), // Ensure it's a number
