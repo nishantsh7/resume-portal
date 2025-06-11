@@ -318,62 +318,95 @@ async function loadRecentUploads() {
     const recentUploadsContainer = document.getElementById("recentUploads");
     if (!recentUploadsContainer) {
         console.error("Recent uploads container not found.");
-        return; // Exit if the container isn't there
+        return;
     }
 
     // 1. Get the JWT token from localStorage
-    const jwtToken = localStorage.getItem('token'); // Use the same 'token' key as your login script
+    const jwtToken = localStorage.getItem('token');
+    const userEmail = localStorage.getItem('userEmail'); // Fix: Get userEmail from localStorage
 
     if (!jwtToken) {
         console.error('No JWT token found. User not authenticated for recent uploads.');
         recentUploadsContainer.innerHTML = "<p class='text-danger'>Please log in to view recent uploads.</p>";
-        // Optionally, redirect to login page if this function is called on a page that requires authentication
-        // window.location.href = '/tpo-login.html'; // Redirect to your TPO login page
-        return; // Stop execution if no token
+        return;
     }
+
+    if (!userEmail) {
+        console.error('No user email found. User session incomplete.');
+        recentUploadsContainer.innerHTML = "<p class='text-danger'>Session incomplete. Please log in again.</p>";
+        // Clear incomplete session
+        clearUserSession();
+        return;
+    }
+
+    // Show loading state
+    recentUploadsContainer.innerHTML = "<p>Loading recent uploads...</p>";
 
     try {
         const res = await fetch(`https://resume-portal-907r.onrender.com/api/tpo/recent-submissions?email=${encodeURIComponent(userEmail)}`, {
-            method: 'GET', // Explicitly state the method for clarity
+            method: 'GET',
             headers: {
                 "Content-Type": "application/json",
-                // --- Crucial: Add the Authorization header with the JWT ---
                 "Authorization": `Bearer ${jwtToken}`,
             },
         });
 
-        // Parse the JSON response
         const data = await res.json();
 
         if (!res.ok) {
-            // Handle HTTP errors (e.g., 401, 403, 500)
-            if (res.status === 401) {
-                console.error('Authentication failed for recent uploads:', data.error);
-                recentUploadsContainer.innerHTML = `<p class='text-danger'>Session expired or unauthorized. Please log in again. Error: ${data.error || 'Unknown'}</p>`;
-                // Clear expired token and redirect to login
-                localStorage.removeItem('token');
-                localStorage.removeItem('userRole');
-                localStorage.removeItem('userEmail');
-                localStorage.removeItem('userName');
-                localStorage.removeItem('collegeName');
-                window.location.href = '/tpo-login.html'; // Redirect to your TPO login page
-            } else if (res.status === 403) {
-                console.error('Access denied for recent uploads:', data.error);
-                recentUploadsContainer.innerHTML = `<p class='text-danger'>Access denied: ${data.error || 'You do not have permission to view these uploads.'}</p>`;
-            } else {
-                console.error(`Error fetching recent uploads: Status ${res.status}`, data.error);
-                recentUploadsContainer.innerHTML = `<p class='text-danger'>Failed to load uploads: ${data.error || 'An unexpected error occurred.'}</p>`;
-            }
-            return; // Stop execution after handling the error
-        }
-
-        // --- If response.ok is true, proceed with rendering ---
-        if (!data || data.length === 0) {
-            recentUploadsContainer.innerHTML = "<p>No recent uploads found.</p>";
+            handleHttpError(res.status, data, recentUploadsContainer);
             return;
         }
 
-        let tableHTML = `
+        // Render the data
+        renderUploadsTable(data, recentUploadsContainer);
+
+    } catch (err) {
+        console.error('Network or unexpected error loading recent uploads:', err);
+        recentUploadsContainer.innerHTML = "<p class='text-danger'>Could not connect to the server. Please check your internet connection and try again.</p>";
+    }
+}
+
+function handleHttpError(status, data, container) {
+    switch (status) {
+        case 401:
+            console.error('Authentication failed for recent uploads:', data.error);
+            container.innerHTML = `<p class='text-danger'>Session expired. Please log in again.</p>`;
+            clearUserSession();
+            // Redirect after a short delay for better UX
+            setTimeout(() => {
+                window.location.href = '/signup.html';
+            }, 2000);
+            break;
+        case 403:
+            console.error('Access denied for recent uploads:', data.error);
+            container.innerHTML = `<p class='text-danger'>Access denied: ${data.error || 'You do not have permission to view these uploads.'}</p>`;
+            break;
+        case 404:
+            container.innerHTML = "<p class='text-warning'>No recent uploads found for your account.</p>";
+            break;
+        case 500:
+            container.innerHTML = "<p class='text-danger'>Server error. Please try again later.</p>";
+            break;
+        default:
+            console.error(`Error fetching recent uploads: Status ${status}`, data.error);
+            container.innerHTML = `<p class='text-danger'>Failed to load uploads: ${data.error || 'An unexpected error occurred.'}</p>`;
+    }
+}
+
+function clearUserSession() {
+    const keysToRemove = ['token', 'userRole', 'userEmail', 'userName', 'collegeName'];
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+}
+
+function renderUploadsTable(data, container) {
+    if (!data || data.length === 0) {
+        container.innerHTML = "<p class='text-muted'>No recent uploads found.</p>";
+        return;
+    }
+
+    let tableHTML = `
+        <div class="table-responsive">
             <table class="table table-bordered table-hover">
                 <thead class="table-light">
                     <tr>
@@ -386,38 +419,67 @@ async function loadRecentUploads() {
                     </tr>
                 </thead>
                 <tbody>
+    `;
+
+    data.forEach(upload => {
+        const formattedDate = formatDate(upload.uploadedAt);
+        const fileCount = upload.resumes?.length || 0;
+        
+        tableHTML += `
+            <tr>
+                <td>${escapeHtml(upload.driveName) || 'N/A'}</td>
+                <td>${escapeHtml(upload.branch) || 'N/A'}</td>
+                <td>${escapeHtml(upload.batchYear) || 'N/A'}</td>
+                <td>${formattedDate}</td>
+                <td>
+                    <span class="badge bg-primary">${fileCount}</span>
+                </td>
+                <td>
+                    ${upload.folderId 
+                        ? `<a href="https://drive.google.com/drive/folders/${escapeHtml(upload.folderId)}" 
+                             target="_blank" 
+                             rel="noopener noreferrer" 
+                             class="btn btn-sm btn-outline-primary">
+                             <i class="fas fa-external-link-alt"></i> View Folder
+                           </a>`
+                        : '<span class="text-muted">N/A</span>'
+                    }
+                </td>
+            </tr>
         `;
+    });
 
-        data.forEach(upload => {
-            const formattedDate = new Date(upload.uploadedAt).toLocaleString();
-            const fileCount = upload.resumes?.length || 0; // Use optional chaining for safety
-            tableHTML += `
-                <tr>
-                    <td>${upload.driveName || 'N/A'}</td>
-                    <td>${upload.branch || 'N/A'}</td>
-                    <td>${upload.batchYear || 'N/A'}</td>
-                    <td>${formattedDate}</td>
-                    <td>${fileCount}</td>
-                    <td>
-                        ${upload.folderId 
-                            ? `<a href="https://drive.google.com/drive/folders/${upload.folderId}" target="_blank">View Folder</a>`
-                            : 'N/A'
-                        }
-                    </td>
-                </tr>
-            `;
+    tableHTML += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    container.innerHTML = tableHTML;
+}
+
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    try {
+        return new Date(dateString).toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
         });
-
-        tableHTML += "</tbody></table>";
-        recentUploadsContainer.innerHTML = tableHTML;
-
-    } catch (err) {
-        // Handle network errors or issues with the fetch operation itself
-        console.error('Network or unexpected error loading recent uploads:', err);
-        recentUploadsContainer.innerHTML = "<p class='text-danger'>Could not connect to the server or an unexpected error occurred while loading uploads.</p>";
+    } catch (error) {
+        console.warn('Invalid date format:', dateString);
+        return 'Invalid Date';
     }
 }
 
+function escapeHtml(text) {
+    if (typeof text !== 'string') return text;
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
 // Don't forget to call this function when your TPO dashboard loads, e.g.:
 // document.addEventListener('DOMContentLoaded', loadRecentUploads);
 
