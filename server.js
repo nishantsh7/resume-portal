@@ -326,7 +326,7 @@ app.post('/api/tpo/upload-resumes', verifyToken, uploads.array('resumeFiles'), a
     // Debug logs
     console.log('Request body:', req.body);
     console.log('Files count:', files.length);
-    console.log('req.user:', req.user); // Debug user object
+     // Debug user object
 
     const savedFiles = await Promise.all(
       files.map(async (file, index) => {
@@ -370,6 +370,7 @@ app.post('/api/tpo/upload-resumes', verifyToken, uploads.array('resumeFiles'), a
 app.get("/api/tpo/recent-submissions",verifyToken,async (req, res) => {
   try {
     const email= req.email;
+    console.log("email at submissions:",email);
     const submissions = await TpoSubmission.find({ madeBy:email })
       .sort({ uploadedAt: -1 })
       .limit(10);

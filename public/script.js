@@ -527,6 +527,40 @@ async function loadSubmission() {
                                 onclick="downloadResume(event, '${data.submission._id}')">
                             <i class="fas fa-download"></i> Download
                         </button>
+                        <!-- PDF Viewer Modal -->
+<div class="modal fade" id="pdfViewerModal" tabindex="-1" aria-labelledby="pdfViewerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="pdfViewerModalLabel">Resume Viewer</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="d-flex justify-content-center align-items-center mb-2 p-2">
+                    <button class="btn btn-sm btn-outline-secondary me-2" onclick="zoomOut()">
+                        <i class="fas fa-search-minus"></i> Zoom Out
+                    </button>
+                    <span id="zoomLevel" class="mx-2">100%</span>
+                    <button class="btn btn-sm btn-outline-secondary me-2" onclick="zoomIn()">
+                        <i class="fas fa-search-plus"></i> Zoom In
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="resetZoom()">
+                        <i class="fas fa-expand-arrows-alt"></i> Reset
+                    </button>
+                </div>
+                <div style="height: 70vh; overflow: auto;">
+                    <iframe id="pdfViewer" 
+                            style="width: 100%; height: 100%; border: none;" 
+                            title="Resume PDF Viewer">
+                    </iframe>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
                     </div>
                 `;
 
@@ -649,13 +683,13 @@ function zoomPDF(direction) {
 }
 
 // Your existing viewResume function with a slight adjustment
+// Global zoom state
+
 async function viewResume(submissionId) {
     try {
         const token = localStorage.getItem('token');
         if (!token) {
             alert('Please log in again to view resumes.');
-            // Optionally redirect to login
-            // window.location.href = '/login.html';
             return;
         }
 
@@ -666,12 +700,13 @@ async function viewResume(submissionId) {
             return;
         }
         
-        // Show a loading state if desired
-        pdfViewer.src = ''; // Clear previous PDF
-        pdfViewer.style.transform = 'scale(1.0)'; // Reset zoom before loading new PDF
-        pdfViewer.style.width = '100%';
-        pdfViewer.style.height = '100%';
-        currentPdfZoom = 1.0; // Reset global zoom state
+        // Show loading state
+        pdfViewer.src = '';
+        resetZoom();
+        
+        // Show the modal first
+        const pdfViewerModal = new bootstrap.Modal(document.getElementById('pdfViewerModal'));
+        pdfViewerModal.show();
 
         // Fetch the resume PDF as a blob
         const response = await fetch(`https://resume-portal-907r.onrender.com/api/resume/view/${submissionId}`, {
@@ -681,43 +716,73 @@ async function viewResume(submissionId) {
         });
         
         if (!response.ok) {
-            // Attempt to parse error message if available
-            const errorText = await response.text(); // Use text() as it might not be JSON for error
+            // Hide modal on error
+            pdfViewerModal.hide();
+            
+            const errorText = await response.text();
             console.error('Failed to fetch resume:', response.status, errorText);
-            // Specific handling for 401 Unauthorized
+            
             if (response.status === 401) {
                 alert('Session expired or unauthorized. Please log in again.');
                 localStorage.removeItem('token');
-                // Clear other user-related localStorage items as well for a clean logout
                 localStorage.removeItem('userRole');
                 localStorage.removeItem('userEmail');
                 localStorage.removeItem('userName');
                 localStorage.removeItem('collegeName');
-                window.location.href = '/tpo-login.html'; // Redirect to your TPO login page
+                window.location.href = '/tpo-login.html';
             } else if (response.status === 403) {
-                 alert('Access denied. You do not have permission to view this resume.');
+                alert('Access denied. You do not have permission to view this resume.');
+            } else {
+                alert(`Failed to fetch resume: ${response.statusText || 'Unknown error'}`);
             }
-            else {
-                throw new Error(`Failed to fetch resume: ${response.statusText || 'Unknown error'}`);
-            }
+            return;
         }
         
         const blob = await response.blob();
         const blobUrl = URL.createObjectURL(blob);
         pdfViewer.src = blobUrl;
         
-        // Show the modal using Bootstrap's JS API
-        const pdfViewerModal = new bootstrap.Modal(document.getElementById('pdfViewerModal'));
-        pdfViewerModal.show();
-        
         // Clean up the blob URL when the modal is hidden
-        pdfViewerModal._element.addEventListener('hidden.bs.modal', () => {
+        document.getElementById('pdfViewerModal').addEventListener('hidden.bs.modal', () => {
             URL.revokeObjectURL(blobUrl);
-            pdfViewer.src = ''; // Clear the iframe src to free up memory
-        }, { once: true }); // Use { once: true } to automatically remove the listener after it fires
+            pdfViewer.src = '';
+        }, { once: true });
+        
     } catch (error) {
         console.error('Error viewing resume:', error);
-        alert('Failed to view resume: ' + error.message || 'An unexpected error occurred.');
+        alert('Failed to view resume: ' + (error.message || 'An unexpected error occurred.'));
+    }
+}
+
+// Zoom functions for PDF viewer
+function zoomIn() {
+    currentPdfZoom += 0.2;
+    if (currentPdfZoom > 3.0) currentPdfZoom = 3.0; // Max zoom
+    applyZoom();
+}
+
+function zoomOut() {
+    currentPdfZoom -= 0.2;
+    if (currentPdfZoom < 0.5) currentPdfZoom = 0.5; // Min zoom
+    applyZoom();
+}
+
+function resetZoom() {
+    currentPdfZoom = 1.0;
+    applyZoom();
+}
+
+function applyZoom() {
+    const pdfViewer = document.getElementById('pdfViewer');
+    const zoomLevel = document.getElementById('zoomLevel');
+    
+    if (pdfViewer) {
+        pdfViewer.style.transform = `scale(${currentPdfZoom})`;
+        pdfViewer.style.transformOrigin = 'top left';
+    }
+    
+    if (zoomLevel) {
+        zoomLevel.textContent = `${Math.round(currentPdfZoom * 100)}%`;
     }
 }
 document.addEventListener('DOMContentLoaded', () => {
