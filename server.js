@@ -313,7 +313,6 @@ app.post('/api/submit', verifyToken, upload.single('resume'), async (req, res) =
 // const upload = multer({ storage: multer.memoryStorage() });
 const uploads = multer({ storage: multer.memoryStorage() });
 
-
 app.post('/api/tpo/upload-resumes', verifyToken, uploads.array('resumeFiles'), async (req, res) => {
   try {
     const { driveName, branch, batchYear, notes, userEmail } = req.body;
@@ -368,6 +367,19 @@ app.post('/api/tpo/upload-resumes', verifyToken, uploads.array('resumeFiles'), a
     });
   }
 });
+app.get("/api/tpo/recent-submissions",verifyToken,async (req, res) => {
+  try {
+    const email= req.email;
+    const submissions = await TpoSubmission.find({ madeBy:email })
+      .sort({ uploadedAt: -1 })
+      .limit(10);
+
+    res.json(submissions);
+  } catch (err) {
+    res.status(500).json({ error: "No uploads yet." });
+  }
+});
+
 
 
 
