@@ -316,6 +316,9 @@ const uploads = multer({ storage: multer.memoryStorage() });
 
 app.post('/api/tpo/upload-resumes', verifyToken, uploads.array('resumeFiles'), async (req, res) => {
   try {
+       
+    console.log('req.userid:', req.userid);
+    
     const { driveName, branch, batchYear, notes, userEmail } = req.body;
     const files = req.files;
 
@@ -346,7 +349,7 @@ app.post('/api/tpo/upload-resumes', verifyToken, uploads.array('resumeFiles'), a
     );
 
     const submission = await TpoSubmission.create({
-      tpoId: req.user._id,
+      tpoId: req.userid,
       driveName,
       branch,
       batchYear,
