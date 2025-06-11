@@ -216,39 +216,61 @@ async function handleProfileSubmit(event) {
 }
 
 async function handleTPOSubmit(event) {
-    event.preventDefault(); // Prevent default form submission
+    event.preventDefault();
 
     const form = document.getElementById('tpoUploadForm');
-    const formData = new FormData(form);
-
-    // Assuming 'userEmail' is a global variable or accessible in this scope,
-    // which was likely set from localStorage after login.
-    const userEmail = localStorage.getItem('userEmail'); // Retrieve user email from localStorage
-    if (userEmail) {
-        formData.append("email", userEmail);
-    } else {
-        console.warn("User email not found in localStorage. Proceeding without it.");
-        // Consider handling this case more robustly, maybe redirecting to login.
+    const formData = new FormData();
+    
+    // Get form fields manually
+    const driveName = form.querySelector('[name="driveName"]')?.value;
+    const branch = form.querySelector('[name="branch"]')?.value;
+    const batchYear = form.querySelector('[name="batchYear"]')?.value;
+    const notes = form.querySelector('[name="notes"]')?.value;
+    
+    // Get files manually
+    const fileInput = document.getElementById('resumeFiles');
+    const files = fileInput.files;
+    
+    // Validate files
+    if (!files || files.length === 0) {
+        alert('Please select at least one PDF file.');
+        return;
     }
+    
+    // Add form fields to FormData
+    formData.append('driveName', driveName);
+    formData.append('branch', branch);
+    formData.append('batchYear', batchYear);
+    formData.append('notes', notes);
+    
+    // Add user email
+    const userEmail = localStorage.getItem('userEmail');
+    if (userEmail) {
+        formData.append('userEmail', userEmail);
+    }
+    
+    // Add files to FormData
+    for (let i = 0; i < files.length; i++) {
+        formData.append('resumeFiles', files[i]);
+    }
+    
+    console.log(`Uploading ${files.length} files`); // Debug log
 
     const spinner = document.getElementById('uploadSpinner');
-    if (spinner) { // Check if spinner element exists
+    if (spinner) {
         spinner.innerText = 'Uploading...';
-        spinner.style.display = 'inline-block'; // Make sure spinner is visible
+        spinner.style.display = 'inline-block';
     }
 
-    // --- Retrieve the JWT token from localStorage ---
-    const jwtToken = localStorage.getItem('token'); // Get the token stored during login
-
+    const jwtToken = localStorage.getItem('token');
     if (!jwtToken) {
-        // If no token is found, the user isn't authenticated.
         alert('You are not logged in. Please log in to upload resumes.');
         if (spinner) {
             spinner.innerText = '';
             spinner.style.display = 'none';
         }
-        window.location.href = '/tpo-login.html'; // Redirect to your TPO login page
-        return; // Stop the function execution
+        window.location.href = '/tpo-login.html';
+        return;
     }
 
     try {
@@ -256,25 +278,18 @@ async function handleTPOSubmit(event) {
             method: 'POST',
             body: formData,
             headers: {
-                // --- Crucial: Add the Authorization header with the JWT ---
                 'Authorization': `Bearer ${jwtToken}`,
-                // No need to set 'Content-Type': 'multipart/form-data' explicitly for FormData,
-                // the browser handles it correctly with the boundary.
             },
         });
 
-        // Parse the JSON response
         const data = await response.json();
 
         if (response.ok) {
-            // Successful upload (status 200-299)
             alert(data.message || 'Resumes uploaded successfully!');
-            form.reset(); // Clear the form fields
+            form.reset();
         } else if (response.status === 401) {
-            // Specifically handle Unauthorized errors
             console.error('Upload failed: 401 Unauthorized', data.error);
             alert(`Session expired or unauthorized. Please log in again. Error: ${data.error || 'Unknown'}`);
-            // Clear expired token and redirect to login
             localStorage.removeItem('token');
             localStorage.removeItem('userRole');
             localStorage.removeItem('userEmail');
@@ -282,23 +297,19 @@ async function handleTPOSubmit(event) {
             localStorage.removeItem('collegeName');
             window.location.href = '/tpo-login.html';
         } else {
-            // Handle other non-OK HTTP statuses (e.g., 400, 403, 500)
             console.error(`Upload failed: Status ${response.status}`, data.error);
             alert(`Upload failed: ${data.error || 'An unexpected error occurred. Please try again.'}`);
         }
     } catch (err) {
-        // Handle network errors or issues with the fetch operation itself
         console.error('Network or unexpected error during upload:', err);
         alert('Could not connect to the server or an unexpected error occurred. Please check your internet connection and try again.');
     } finally {
-        // Ensure spinner is hidden regardless of success or failure
         if (spinner) {
             spinner.innerText = '';
             spinner.style.display = 'none';
         }
     }
 }
-
 document.addEventListener('DOMContentLoaded', async () => {
   await loadRecentUploads();
 });

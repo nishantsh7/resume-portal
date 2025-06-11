@@ -44,55 +44,50 @@
                   <div class="col-md-6">
                     <div class="mb-3">
                       <label for="driveName" class="form-label">Placement Drive Name *</label>
-                      <input type="text" class="form-control" id="driveName" required />
+                      <input name="driveName" type="text" class="form-control" id="driveName" required />
                     </div>
                     <div class="mb-3">
                       <label for="branch" class="form-label">Branch *</label>
-                      <input type="text" class="form-control" id="branch" required />
+                      <input namr="branch" type="text" class="form-control" id="branch" required />
                     </div>
                   </div>
                   <div class="col-md-6">
                     <div class="mb-3">
                       <label for="batchYear" class="form-label">Batch Year *</label>
-                      <input type="number" class="form-control" id="batchYear" required />
+                      <input name="batchYear" type="number" class="form-control" id="batchYear" required />
                     </div>
                     <div class="mb-3">
                       <label for="notes" class="form-label">Notes (optional)</label>
-                      <textarea class="form-control" id="notes" rows="3"></textarea>
+                      <textarea name="notes" class="form-control" id="notes" rows="3"></textarea>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <!-- Bulk Resume Upload -->
-              <div class="mb-5">
-                <h4 class="mb-3">Upload Resumes (Multiple PDFs)</h4>
-                <div class="mb-3">
-                  <label for="resumeFiles" class="form-label">Select PDF Files *</label>
-                  <input
-                    type="file"
-                    class="form-control"
-                    id="resumeFiles"
-                    accept=".pdf"
-                    multiple
-                    required
-                  />
-                  <div class="form-text">You can upload multiple resume PDFs at once.</div>
-                </div>
-              </div>
-
-              <div class="d-grid gap-2 mt-4">
-                <button type="submit" class="btn btn-success">
-                  <span class="spinner" id="uploadSpinner"></span>
-                  <span class="btn-text">Upload Resumes</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
+             <!-- Bulk Resume Upload -->
+<div class="mb-5">
+  <h4 class="mb-3">Upload Resumes (Multiple PDFs)</h4>
+  <div class="mb-3">
+    <label for="resumeFiles" class="form-label">Select PDF Files *</label>
+    <input
+      type="file"
+      class="form-control"
+      id="resumeFiles"
+      name="resumeFiles"
+      accept=".pdf"
+      multiple
+      required
+    />
+    <div class="form-text">You can upload multiple resume PDFs at once.</div>
   </div>
+</div>
+
+<div class="d-grid gap-2 mt-4">
+  <button type="submit" class="btn btn-success">
+    <span class="spinner" id="uploadSpinner"></span>
+    <span class="btn-text">Upload Resumes</span>
+  </button>
+</div>
   <!-- Recent Uploads -->
 <div class="container mt-5">
   <div class="card shadow">

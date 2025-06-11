@@ -314,24 +314,38 @@ app.post('/api/submit', verifyToken, upload.single('resume'), async (req, res) =
 const uploads = multer({ storage: multer.memoryStorage() });
 
 
-app.post('/api/tpo/upload-resumes',verifyToken, uploads.array('resumeFiles'), async (req, res) => {
+app.post('/api/tpo/upload-resumes', verifyToken, uploads.array('resumeFiles'), async (req, res) => {
   try {
     const { driveName, branch, batchYear, notes, userEmail } = req.body;
     const files = req.files;
 
+    // Add validation
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    console.log('Request body:', req.body); // Debug log
+    console.log('Files count:', files.length); // Debug log
+
     const savedFiles = await Promise.all(
-      files.map(async (file) => {
-        const driveRes = await uploadToGoogleDrive(file,userEmail);
-        return {
-          originalName: file.originalname,
-          mimeType: file.mimetype,
-          driveFileId: driveRes.id,
-          driveViewLink: driveRes.webViewLink,
-        };
+      files.map(async (file, index) => {
+        try {
+          console.log(`Uploading file ${index + 1}:`, file.originalname);
+          const driveRes = await uploadToGoogleDrive(file, userEmail);
+          return {
+            originalName: file.originalname,
+            mimeType: file.mimetype,
+            driveFileId: driveRes.id,
+            driveViewLink: driveRes.webViewLink,
+          };
+        } catch (fileError) {
+          console.error(`Error uploading file ${file.originalname}:`, fileError);
+          throw new Error(`Failed to upload ${file.originalname}: ${fileError.message}`);
+        }
       })
     );
 
-    await TpoSubmission.create({
+    const submission = await TpoSubmission.create({
       tpoId: req.user._id,
       driveName,
       branch,
@@ -340,13 +354,16 @@ app.post('/api/tpo/upload-resumes',verifyToken, uploads.array('resumeFiles'), as
       resumes: savedFiles,
     });
 
+    console.log('Submission created:', submission._id);
     res.json({ message: `${files.length} resumes uploaded successfully.` });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Upload failed. Please try again.' });
+    console.error('Upload error details:', error);
+    res.status(500).json({ 
+      error: 'Upload failed. Please try again.',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
-
 
 app.get("/api/tpo/recent-submissions",verifyToken,async (req, res) => {
   try {
