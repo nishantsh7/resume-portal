@@ -154,22 +154,50 @@ async function handleSignup(event) {
 async function handleProfileSubmit(event) {
     event.preventDefault();
     
-    
-    const fullName = document.getElementById('fullName').value;
-    const mobile = document.getElementById('mobile').value;
-    const email = document.getElementById('email').value;
-    const institution = document.getElementById('institution').value;
-    const bio = document.getElementById('bio').value;
+    const fullName = document.getElementById('fullName').value.trim();
+    const mobile = document.getElementById('mobile').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const institution = document.getElementById('institution').value.trim();
+    const bio = document.getElementById('bio').value.trim();
     const resumeFile = document.getElementById('resumeFile').files[0];
     const spinner = document.getElementById('submitSpinner');
+    
+    // Basic validation
+    if (!fullName || !mobile || !email || !institution || !bio) {
+        alert('Please fill in all required fields');
+        return;
+    }
+    
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        alert('Please enter a valid email address');
+        return;
+    }
     
     // Check if this is an initial submission
     const form = event.target;
     const isUpdate = !!form.dataset.submissionId;
     
     if (!isUpdate && !resumeFile) {
-        alert('Please upload your resume');
+        alert('Please upload your resume for initial submission');
         return;
+    }
+    
+    // File type validation (if file is provided)
+    if (resumeFile) {
+        const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+        if (!allowedTypes.includes(resumeFile.type)) {
+            alert('Please upload only PDF or Word documents');
+            return;
+        }
+        
+        // File size validation (10MB limit)
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (resumeFile.size > maxSize) {
+            alert('File size must be less than 10MB');
+            return;
+        }
     }
     
     const formData = new FormData();
@@ -199,23 +227,84 @@ async function handleProfileSubmit(event) {
             throw new Error(data.error || 'Failed to submit profile');
         }
         
-        alert(data.message);
+        // Show success message
+        alert(data.message || 'Profile submitted successfully!');
         
         // Clear file input after successful submission
         const fileInput = document.getElementById('resumeFile');
         if (fileInput) {
             fileInput.value = '';
+            
+            // Update file input label if you have one
+            const fileLabel = document.querySelector('label[for="resumeFile"] .file-name');
+            if (fileLabel) {
+                fileLabel.textContent = 'No file chosen';
+            }
         }
         
-        // Reload the submission data
+        // Update form to show it's now an update operation
+        if (!isUpdate) {
+            form.dataset.submissionId = data.submission._id || data.submission.id;
+        }
+        
+        // Reload the submission data to reflect changes
         await loadSubmission();
+        
     } catch (error) {
-        alert(error.message);
+        console.error('Profile submission error:', error);
+        
+        // Show user-friendly error messages
+        let errorMessage = 'Failed to submit profile. Please try again.';
+        
+        if (error.message.includes('Failed to upload resume to Google Drive')) {
+            errorMessage = 'Failed to upload resume. Please check your file and try again.';
+        } else if (error.message.includes('Resume file is required')) {
+            errorMessage = 'Please upload your resume file.';
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+        
+        alert(errorMessage);
     } finally {
         spinner.style.display = 'none';
     }
 }
 
+// Helper function to validate file on selection (optional)
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    const fileLabel = document.querySelector('label[for="resumeFile"] .file-name');
+    
+    if (file) {
+        // Validate file type
+        const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+        if (!allowedTypes.includes(file.type)) {
+            alert('Please select only PDF or Word documents');
+            event.target.value = '';
+            if (fileLabel) fileLabel.textContent = 'No file chosen';
+            return;
+        }
+        
+        // Validate file size
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        if (file.size > maxSize) {
+            alert('File size must be less than 10MB');
+            event.target.value = '';
+            if (fileLabel) fileLabel.textContent = 'No file chosen';
+            return;
+        }
+        
+        // Update label with file name
+        if (fileLabel) {
+            fileLabel.textContent = file.name;
+        }
+    } else {
+        if (fileLabel) fileLabel.textContent = 'No file chosen';
+    }
+}
+
+// Add event listener for file input (add this to your page initialization)
+// document.getElementById('resumeFile').addEventListener('change', handleFileSelect);
 async function handleTPOSubmit(event) {
     event.preventDefault();
 

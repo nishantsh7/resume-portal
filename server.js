@@ -36,45 +36,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 
 
-// Ensure uploads directory exists
-const uploadsDir = path.join('/tmp', 'resumes');
 
-if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-}
 
 // Configure multer for file upload
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, uploadsDir);
-    },
-    filename: function (req, file, cb) {
-        // Create a safe filename
-        let safeName = 'resume';
-
-        if (req.body && req.body.fullName) {
-            safeName = req.body.fullName.replace(/[^a-zA-Z0-9]/g, '_');
-        }
-
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const finalName = `${safeName}-${uniqueSuffix}${path.extname(file.originalname)}`;
-
-        req.resumeFileName = finalName; // Store filename for later use if needed
-        cb(null, finalName);
-    }
-});
-
-const upload = multer({
-    storage: storage,
-    fileFilter: function (req, file, cb) {
-        if (file.mimetype !== 'application/pdf') {
-            return cb(new Error('Only PDF files are allowed'));
-        }
-        cb(null, true);
-    },
-    limits: {
-        fileSize: 5 * 1024 * 1024 // 5MB limit
-    }
+c
+const upload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 // MySQL Connection - Fixed to use single consistent connection
 mongoose.connect(process.env.CONNECTION_STRING, {
@@ -243,16 +211,13 @@ app.post('/api/submit', verifyToken, upload.single('resume'), async (req, res) =
         // Check if user already has a submission
         let submission = await Submission.findOne({ userId: req.userId });
         
-        // If old resume exists and new resume is uploaded, delete the old one
-        if (submission && submission.resumePath && req.file) {
+        // If old resume exists and new resume is uploaded, delete the old one from Google Drive
+        if (submission && submission.resume && submission.resume.driveFileId && req.file) {
             try {
-                const oldFilePath = path.join(__dirname, submission.resumePath);
-                if (fs.existsSync(oldFilePath)) {
-                    fs.unlinkSync(oldFilePath);
-                    console.log(`Deleted old resume: ${submission.resumeFilename}`);
-                }
+                await deleteFromGoogleDrive(submission.resume.driveFileId);
+                console.log(`Deleted old resume from Drive: ${submission.resume.originalName}`);
             } catch (deleteError) {
-                console.error('Error deleting old resume:', deleteError);
+                console.error('Error deleting old resume from Drive:', deleteError);
                 // Continue with the update even if delete fails
             }
         }
@@ -267,9 +232,19 @@ app.post('/api/submit', verifyToken, upload.single('resume'), async (req, res) =
 
         // Only update resume data if a new file was uploaded
         if (req.file) {
-            updateData.resumeFilename = req.resumeFileName;
-            updateData.resumePath = `/tmp/resumes/${req.resumeFileName}`;
-
+            try {
+                const driveRes = await uploadToGoogleDrive(req.file, req.body.email);
+                const resume = {
+                    originalName: req.file.originalname,
+                    mimeType: req.file.mimetype,
+                    driveFileId: driveRes.id,
+                    driveViewLink: driveRes.webViewLink
+                };
+                updateData.resume = resume;
+            } catch (driveUploadError) {
+                console.error('Error uploading to Google Drive:', driveUploadError);
+                return res.status(500).json({ error: 'Failed to upload resume to Google Drive' });
+            }
         }
 
         if (submission) {
@@ -288,25 +263,30 @@ app.post('/api/submit', verifyToken, upload.single('resume'), async (req, res) =
             if (!req.file) {
                 return res.status(400).json({ error: 'Resume file is required for initial submission' });
             }
-            const driveRes = await uploadToGoogleDrive(req.file, req.body.email);
-             const resume ={originalName: file.originalname,
-            mimeType: file.mimetype,
-            driveFileId: driveRes.id,
-            driveViewLink: driveRes.webViewLink}
-
-            submission = await Submission.create({
-                userId: req.userId,
-                ...updateData,
-                resume:resume
-
-            });
             
+            try {
+                const driveRes = await uploadToGoogleDrive(req.file, req.body.email);
+                const resume = {
+                    originalName: req.file.originalname,
+                    mimeType: req.file.mimetype,
+                    driveFileId: driveRes.id,
+                    driveViewLink: driveRes.webViewLink
+                };
 
+                submission = await Submission.create({
+                    userId: req.userId,
+                    ...updateData,
+                    resume: resume
+                });
 
-            res.status(201).json({
-                message: 'Profile submitted successfully',
-                submission
-            });
+                res.status(201).json({
+                    message: 'Profile submitted successfully',
+                    submission
+                });
+            } catch (driveUploadError) {
+                console.error('Error uploading to Google Drive:', driveUploadError);
+                return res.status(500).json({ error: 'Failed to upload resume to Google Drive' });
+            }
         }
     } catch (error) {
         console.error('Submission error:', error);
