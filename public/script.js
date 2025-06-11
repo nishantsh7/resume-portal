@@ -322,7 +322,7 @@ async function loadRecentUploads() {
     }
 
     try {
-        const res = await fetch("https://resume-portal-907r.onrender.com/api/tpo/recent-submissions", {
+        const res = await fetch(`https://resume-portal-907r.onrender.com/api/tpo/recent-submissions?email=${encodeURIComponent(userEmail)}`, {
             method: 'GET', // Explicitly state the method for clarity
             headers: {
                 "Content-Type": "application/json",
@@ -541,16 +541,64 @@ async function updateQualificationStatus(submissionId, status) {
 }
 
 // View resume in modal
+// Global variable to manage PDF zoom level
+let currentPdfZoom = 1.0; // Initial zoom level
+
+// Function to handle PDF zooming
+function zoomPDF(direction) {
+    const pdfViewer = document.getElementById('pdfViewer');
+    if (!pdfViewer) {
+        console.error("PDF Viewer iframe not found.");
+        return;
+    }
+
+    const zoomStep = 0.1; // How much to zoom in/out each step
+    const minZoom = 0.5;
+    const maxZoom = 3.0;
+
+    if (direction === 'in') {
+        currentPdfZoom = Math.min(maxZoom, currentPdfZoom + zoomStep);
+    } else if (direction === 'out') {
+        currentPdfZoom = Math.max(minZoom, currentPdfZoom - zoomStep);
+    } else if (direction === 'reset') {
+        currentPdfZoom = 1.0;
+    }
+
+    // Apply the zoom using CSS transform
+    pdfViewer.style.transform = `scale(${currentPdfZoom})`;
+    // Ensure the iframe content itself can be scrolled if it overflows after zoom
+    pdfViewer.style.width = `${100 / currentPdfZoom}%`;
+    pdfViewer.style.height = `${100 / currentPdfZoom}%`;
+    // The parent container (pdf-container) needs overflow: auto to enable scrolling
+    // which is already present in your HTML.
+}
+
+// Your existing viewResume function with a slight adjustment
 async function viewResume(submissionId) {
     try {
         const token = localStorage.getItem('token');
         if (!token) {
-            alert('Please login again');
+            alert('Please log in again to view resumes.');
+            // Optionally redirect to login
+            // window.location.href = '/login.html';
             return;
         }
 
         const pdfViewer = document.getElementById('pdfViewer');
-        // Create a blob URL from the fetch response
+        if (!pdfViewer) {
+            console.error("PDF Viewer iframe not found.");
+            alert('PDF viewer component not ready.');
+            return;
+        }
+        
+        // Show a loading state if desired
+        pdfViewer.src = ''; // Clear previous PDF
+        pdfViewer.style.transform = 'scale(1.0)'; // Reset zoom before loading new PDF
+        pdfViewer.style.width = '100%';
+        pdfViewer.style.height = '100%';
+        currentPdfZoom = 1.0; // Reset global zoom state
+
+        // Fetch the resume PDF as a blob
         const response = await fetch(`https://resume-portal-907r.onrender.com/api/resume/view/${submissionId}`, {
             headers: {
                 'Authorization': `Bearer ${token}`
@@ -558,29 +606,45 @@ async function viewResume(submissionId) {
         });
         
         if (!response.ok) {
-            throw new Error('Failed to fetch resume');
+            // Attempt to parse error message if available
+            const errorText = await response.text(); // Use text() as it might not be JSON for error
+            console.error('Failed to fetch resume:', response.status, errorText);
+            // Specific handling for 401 Unauthorized
+            if (response.status === 401) {
+                alert('Session expired or unauthorized. Please log in again.');
+                localStorage.removeItem('token');
+                // Clear other user-related localStorage items as well for a clean logout
+                localStorage.removeItem('userRole');
+                localStorage.removeItem('userEmail');
+                localStorage.removeItem('userName');
+                localStorage.removeItem('collegeName');
+                window.location.href = '/tpo-login.html'; // Redirect to your TPO login page
+            } else if (response.status === 403) {
+                 alert('Access denied. You do not have permission to view this resume.');
+            }
+            else {
+                throw new Error(`Failed to fetch resume: ${response.statusText || 'Unknown error'}`);
+            }
         }
         
         const blob = await response.blob();
         const blobUrl = URL.createObjectURL(blob);
         pdfViewer.src = blobUrl;
         
-        // Show the modal
-        const modal = new bootstrap.Modal(document.getElementById('pdfViewerModal'));
-        modal.show();
+        // Show the modal using Bootstrap's JS API
+        const pdfViewerModal = new bootstrap.Modal(document.getElementById('pdfViewerModal'));
+        pdfViewerModal.show();
         
         // Clean up the blob URL when the modal is hidden
-        modal._element.addEventListener('hidden.bs.modal', () => {
+        pdfViewerModal._element.addEventListener('hidden.bs.modal', () => {
             URL.revokeObjectURL(blobUrl);
-        }, { once: true });
+            pdfViewer.src = ''; // Clear the iframe src to free up memory
+        }, { once: true }); // Use { once: true } to automatically remove the listener after it fires
     } catch (error) {
         console.error('Error viewing resume:', error);
-        alert('Failed to view resume: ' + error.message);
+        alert('Failed to view resume: ' + error.message || 'An unexpected error occurred.');
     }
 }
-
-
-
 document.addEventListener('DOMContentLoaded', () => {
   const tpoTab = document.getElementById('tpo-tab');
   tpoTab.addEventListener('click', fetchTpoSubmissions);
@@ -626,7 +690,7 @@ async function fetchTpoSubmissions() {
                 alert(`Access denied: ${submissions.error || 'You do not have permission to view these submissions.'}`);
             } else {
                 console.error(`Error fetching TPO submissions: Status ${response.status}`, submissions.error);
-                alert(`Failed to fetch TPO submissions: ${submissions.error || 'An unexpected error occurred.'}`);
+            
             }
             return; // Stop execution after handling the error
         }

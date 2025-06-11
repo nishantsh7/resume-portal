@@ -348,22 +348,16 @@ app.post('/api/tpo/upload-resumes',verifyToken, uploads.array('resumeFiles'), as
 });
 
 
-
-// Replace this with actual auth logic
-const getCurrentTPOEmail = (req) => {
-  return req.user?.email || "tpo@example.com"; // temporary fallback
-};
-
 app.get("/api/tpo/recent-submissions",verifyToken,async (req, res) => {
   try {
-    const email = getCurrentTPOEmail(req);
+      const email = req.query.email;
     const submissions = await TpoSubmission.find({ uploadedBy: email })
       .sort({ uploadedAt: -1 })
       .limit(10);
 
     res.json(submissions);
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch uploads." });
+    res.status(500).json({ error: "No uploads yet." });
   }
 });
 
