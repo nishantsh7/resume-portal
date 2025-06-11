@@ -42,7 +42,7 @@ async function uploadToGoogleDrive(file,email) {
   await drive.permissions.create({
     fileId: response.data.id,
     requestBody: {
-      role: 'editor',
+      role: 'owner',
       type: 'user',
       emailAddress: 'manojpapneja@gmail.com'
     },
