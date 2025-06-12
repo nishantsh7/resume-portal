@@ -14,7 +14,7 @@ require('dotenv').config();
 const User = require('./models/User');
 const Submission = require('./models/Submission');
 const TpoSubmission = require('./models/TpoSubmission'); // Your schema
-const { uploadToGoogleDrive } = require('./utils/googledrive');
+const { uploadToGoogleDrive,downloadFromGoogleDrive, getFileInfo } = require('./utils/googledrive');
 
 
 
@@ -453,7 +453,7 @@ app.put('/api/submissions/:id/downloaded', verifyToken, requireAdmin, async (req
 
 // View resume endpoint
 // Import your Google Drive functions at the top of your file
-const { downloadFromGoogleDrive, getFileInfo } = require('./path/to/your/googleDriveService'); // Adjust path as needed
+// const { downloadFromGoogleDrive, getFileInfo } = require('./'); // Adjust path as needed
 
 app.get('/api/resume/view/:id', verifyToken, async (req, res) => {
     try {
