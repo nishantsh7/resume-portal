@@ -607,11 +607,14 @@ async function loadSubmission() {
             const currentResumeDiv = document.getElementById('currentResume');
             if (data.submission.resume[0].driveFileId)
              {
+                console.log(submission._id);
+
                 currentResumeDiv.innerHTML = `
                     <p>Current Resume: ${data.submission.resume[0].originalName}</p>
                     <div class="btn-group" role="group">
                         <button class="btn btn-sm btn-info me-2" 
                                 onclick="viewResume('${data.submission._id}')">
+
                             <i class="fas fa-eye"></i> View
                         </button>
                         <button class="btn btn-sm btn-primary"
@@ -859,19 +862,21 @@ async function viewResume(submissionId) {
         }, { once: true });
         
     } catch (error) {
-        console.error('Error viewing resume:', error);
-        
-        // Hide modal on error
-        const modal = bootstrap.Modal.getInstance(document.getElementById('pdfViewerModal'));
-        if (modal) {
-            modal.hide();
-        }
-        
-        // Hide loading indicator
-        hideLoadingInViewer();
-        
-        alert('Failed to view resume: ' + (error.message || 'An unexpected error occurred.'));
+    console.error('Error viewing resume:', error);
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('pdfViewerModal'));
+    if (modal) {
+        modal.hide();
     }
+    
+    hideLoadingInViewer();
+    
+    const errorMsg = (error && error.message) 
+        ? error.message 
+        : (typeof error === 'string' ? error : JSON.stringify(error));
+
+    alert('Failed to view resume: ' + errorMsg);
+}
 }
 
 // Optional loading indicator functions
