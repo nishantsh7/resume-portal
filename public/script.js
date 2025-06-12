@@ -607,7 +607,7 @@ async function loadSubmission() {
             const currentResumeDiv = document.getElementById('currentResume');
             if (data.submission.resume[0].driveFileId)
              {
-                console.log(submission._id);
+                console.log(data.submission._id);
 
                 currentResumeDiv.innerHTML = `
                     <p>Current Resume: ${data.submission.resume[0].originalName}</p>
