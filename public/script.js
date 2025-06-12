@@ -605,9 +605,10 @@ async function loadSubmission() {
             
             // Display current resume if exists
             const currentResumeDiv = document.getElementById('currentResume');
-            if (data.submission.resumeFilename) {
+            if (data.submission.resume[0].driveFileId)
+             {
                 currentResumeDiv.innerHTML = `
-                    <p>Current Resume: ${data.submission.resumeFilename}</p>
+                    <p>Current Resume: ${data.submission.resume[0].originalName}</p>
                     <div class="btn-group" role="group">
                         <button class="btn btn-sm btn-info me-2" 
                                 onclick="viewResume('${data.submission._id}')">
