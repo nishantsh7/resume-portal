@@ -233,7 +233,7 @@ app.post('/api/submit', verifyToken, upload.single('resume'), async (req, res) =
         // Only update resume data if a new file was uploaded
         if (req.file) {
             try {
-                const driveRes = await uploadToGoogleDrive(req.file, req.body.email,student);
+                const driveRes = await uploadToGoogleDrive(req.file, req.body.email,"student");
                 const resume = {
                     originalName: req.file.originalname,
                     mimeType: req.file.mimetype,
@@ -265,7 +265,7 @@ app.post('/api/submit', verifyToken, upload.single('resume'), async (req, res) =
             }
             
             try {
-                const driveRes = await uploadToGoogleDrive(req.file, req.body.email,student);
+                const driveRes = await uploadToGoogleDrive(req.file, req.body.email,"student");
                 const resume = {
                     originalName: req.file.originalname,
                     mimeType: req.file.mimetype,
