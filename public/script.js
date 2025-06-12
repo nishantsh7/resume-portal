@@ -775,6 +775,8 @@ function zoomPDF(direction) {
 // Your existing viewResume function with a slight adjustment
 // Global zoom state
 
+// Initialize zoom level
+
 async function viewResume(submissionId) {
     try {
         const token = localStorage.getItem('token');
@@ -798,10 +800,14 @@ async function viewResume(submissionId) {
         const pdfViewerModal = new bootstrap.Modal(document.getElementById('pdfViewerModal'));
         pdfViewerModal.show();
 
+        // Add loading indicator (optional enhancement)
+        showLoadingInViewer();
+
         // Fetch the resume PDF as a blob
         const response = await fetch(`https://resume-portal-907r.onrender.com/api/resume/view/${submissionId}`, {
             headers: {
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/pdf, image/*, */*' // Accept multiple file types
             }
         });
         
@@ -809,8 +815,15 @@ async function viewResume(submissionId) {
             // Hide modal on error
             pdfViewerModal.hide();
             
-            const errorText = await response.text();
-            console.error('Failed to fetch resume:', response.status, errorText);
+            let errorMessage;
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.error || response.statusText;
+            } catch {
+                errorMessage = response.statusText || 'Unknown error';
+            }
+            
+            console.error('Failed to fetch resume:', response.status, errorMessage);
             
             if (response.status === 401) {
                 alert('Session expired or unauthorized. Please log in again.');
@@ -822,14 +835,20 @@ async function viewResume(submissionId) {
                 window.location.href = '/tpo-login.html';
             } else if (response.status === 403) {
                 alert('Access denied. You do not have permission to view this resume.');
+            } else if (response.status === 404) {
+                alert('Resume file not found. It may have been deleted or moved.');
             } else {
-                alert(`Failed to fetch resume: ${response.statusText || 'Unknown error'}`);
+                alert(`Failed to fetch resume: ${errorMessage}`);
             }
             return;
         }
         
         const blob = await response.blob();
         const blobUrl = URL.createObjectURL(blob);
+        
+        // Hide loading indicator
+        hideLoadingInViewer();
+        
         pdfViewer.src = blobUrl;
         
         // Clean up the blob URL when the modal is hidden
@@ -840,7 +859,32 @@ async function viewResume(submissionId) {
         
     } catch (error) {
         console.error('Error viewing resume:', error);
+        
+        // Hide modal on error
+        const modal = bootstrap.Modal.getInstance(document.getElementById('pdfViewerModal'));
+        if (modal) {
+            modal.hide();
+        }
+        
+        // Hide loading indicator
+        hideLoadingInViewer();
+        
         alert('Failed to view resume: ' + (error.message || 'An unexpected error occurred.'));
+    }
+}
+
+// Optional loading indicator functions
+function showLoadingInViewer() {
+    const pdfViewer = document.getElementById('pdfViewer');
+    if (pdfViewer) {
+        pdfViewer.style.background = 'url("data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiBzdHJva2U9IiMwMDciPjxnIGZpbGw9Im5vbmUiIGZpbGwtcnVsZT0iZXZlbm9kZCI+PGcgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoMSAxKSIgc3Ryb2tlLXdpZHRoPSIyIj48Y2lyY2xlIHN0cm9rZS1vcGFjaXR5PSIuNSIgY3g9IjE4IiBjeT0iMTgiIHI9IjE4Ii8+PHBhdGggZD0ibTM2IDE4YzAtOS45NC04LjA2LTE4LTE4LTE4Ij48YW5pbWF0ZVRyYW5zZm9ybSBhdHRyaWJ1dGVOYW1lPSJ0cmFuc2Zvcm0iIHR5cGU9InJvdGF0ZSIgdmFsdWVzPSIwIDE4IDE4OzM2MCAxOCAxOCIgZHVyPSIxcyIgcmVwZWF0Q291bnQ9ImluZGVmaW5pdGUiLz48L3BhdGg+PC9nPjwvZz48L3N2Zz4=") center center no-repeat';
+    }
+}
+
+function hideLoadingInViewer() {
+    const pdfViewer = document.getElementById('pdfViewer');
+    if (pdfViewer) {
+        pdfViewer.style.background = 'white';
     }
 }
 
@@ -875,6 +919,25 @@ function applyZoom() {
         zoomLevel.textContent = `${Math.round(currentPdfZoom * 100)}%`;
     }
 }
+
+// Keyboard shortcuts for zoom (optional enhancement)
+document.addEventListener('keydown', function(e) {
+    const modal = document.getElementById('pdfViewerModal');
+    const isModalOpen = modal && modal.classList.contains('show');
+    
+    if (isModalOpen && (e.ctrlKey || e.metaKey)) {
+        if (e.key === '=' || e.key === '+') {
+            e.preventDefault();
+            zoomIn();
+        } else if (e.key === '-') {
+            e.preventDefault();
+            zoomOut();
+        } else if (e.key === '0') {
+            e.preventDefault();
+            resetZoom();
+        }
+    }
+});
 document.addEventListener('DOMContentLoaded', () => {
   const tpoTab = document.getElementById('tpo-tab');
   tpoTab.addEventListener('click', fetchTpoSubmissions);

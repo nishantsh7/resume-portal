@@ -233,7 +233,7 @@ app.post('/api/submit', verifyToken, upload.single('resume'), async (req, res) =
         // Only update resume data if a new file was uploaded
         if (req.file) {
             try {
-                const driveRes = await uploadToGoogleDrive(req.file, req.body.email);
+                const driveRes = await uploadToGoogleDrive(req.file, req.body.email,student);
                 const resume = {
                     originalName: req.file.originalname,
                     mimeType: req.file.mimetype,
@@ -265,7 +265,7 @@ app.post('/api/submit', verifyToken, upload.single('resume'), async (req, res) =
             }
             
             try {
-                const driveRes = await uploadToGoogleDrive(req.file, req.body.email);
+                const driveRes = await uploadToGoogleDrive(req.file, req.body.email,student);
                 const resume = {
                     originalName: req.file.originalname,
                     mimeType: req.file.mimetype,
@@ -452,6 +452,9 @@ app.put('/api/submissions/:id/downloaded', verifyToken, requireAdmin, async (req
 });
 
 // View resume endpoint
+// Import your Google Drive functions at the top of your file
+const { downloadFromGoogleDrive, getFileInfo } = require('./path/to/your/googleDriveService'); // Adjust path as needed
+
 app.get('/api/resume/view/:id', verifyToken, async (req, res) => {
     try {
         const submission = await Submission.findById(req.params.id);
@@ -465,19 +468,96 @@ app.get('/api/resume/view/:id', verifyToken, async (req, res) => {
             return res.status(403).json({ error: 'Access denied' });
         }
 
-        const filePath = submission.resumePath; // Use directly since it's absolute
+        const fileId = submission.resume[0].driveFileId;
         
-        if (fs.existsSync(filePath)) {
-            res.setHeader('Content-Type', 'application/pdf');
-            res.setHeader('Content-Disposition', 'inline; filename=' + submission.resumeFilename);
-            res.sendFile(filePath);
-        } else {
-            console.log('File not found at:', filePath); // Debug log
-            res.status(404).json({ error: 'Resume file not found' });
+        if (!fileId) {
+            return res.status(404).json({ error: 'File ID not found' });
         }
+
+        // Get file metadata first to set proper headers
+        const fileInfo = await getFileInfo(fileId);
+        
+        // Download file from Google Drive
+        const fileBuffer = await downloadFromGoogleDrive(fileId);
+        
+        // Set appropriate headers
+        res.set({
+            'Content-Type': fileInfo.mimeType || 'application/octet-stream',
+            'Content-Length': fileBuffer.length,
+            'Content-Disposition': `inline; filename="${fileInfo.name}"`,
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+        });
+
+        // Send the file buffer
+        res.send(fileBuffer);
+        
     } catch (error) {
         console.error('Error serving resume:', error);
-        res.status(500).json({ error: 'Server error' });
+        
+        // Handle specific Google Drive errors
+        if (error.message.includes('File not found')) {
+            return res.status(404).json({ error: 'File not found in Google Drive' });
+        }
+        
+        if (error.message.includes('Access denied') || error.message.includes('Forbidden')) {
+            return res.status(403).json({ error: 'Access denied to file' });
+        }
+        
+        res.status(500).json({ error: 'Server error while fetching file' });
+    }
+});
+
+// Alternative endpoint if you want to return file as base64 for frontend handling
+app.get('/api/resume/view-base64/:id', verifyToken, async (req, res) => {
+    try {
+        const submission = await Submission.findById(req.params.id);
+        
+        if (!submission) {
+            return res.status(404).json({ error: 'Resume not found' });
+        }
+
+        // Check if user has permission to view this resume
+        if (req.userRole !== 'admin' && submission.userId.toString() !== req.userId) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        const fileId = submission.resume[0].driveFileId;
+        
+        if (!fileId) {
+            return res.status(404).json({ error: 'File ID not found' });
+        }
+
+        // Get file metadata and download file
+        const [fileInfo, fileBuffer] = await Promise.all([
+            getFileInfo(fileId),
+            downloadFromGoogleDrive(fileId)
+        ]);
+        
+        // Convert to base64 and send as JSON
+        const base64File = fileBuffer.toString('base64');
+        
+        res.json({
+            fileName: fileInfo.name,
+            mimeType: fileInfo.mimeType,
+            size: fileInfo.size,
+            fileData: base64File,
+            webViewLink: fileInfo.webViewLink
+        });
+        
+    } catch (error) {
+        console.error('Error serving resume as base64:', error);
+        
+        if (error.message.includes('File not found')) {
+            return res.status(404).json({ error: 'File not found in Google Drive' });
+        }
+        
+        if (error.message.includes('Access denied') || error.message.includes('Forbidden')) {
+            return res.status(403).json({ error: 'Access denied to file' });
+        }
+        
+        res.status(500).json({ error: 'Server error while fetching file' });
     }
 });
 
