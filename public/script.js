@@ -577,12 +577,11 @@ function renderUploadsTable(submissions, container) {
                     <th>Uploaded On</th>
                     <th>Student Name</th>
                     <th>Resume File</th>
-                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
     `;
-
+//<th>Actions</th>
     submissions.forEach(submission => {
         const uploadDate = new Date(submission.createdAt).toLocaleDateString('en-GB', {
             year: 'numeric',
@@ -605,18 +604,19 @@ function renderUploadsTable(submissions, container) {
                             </a>
                         </td>
                         <td>
-                            <button
-                                class="btn btn-sm btn-info view-resume-btn"
-                                data-submission-id="${submission._id}"
-                                data-resume-link="${resume.driveViewLink}"
-                                data-student-name="${resume.studentName}"
-                            >
-                                Preview Resume
-                            </button>
                         </td>
                     </tr>
                 `;
             });
+
+            // <button
+            //                     class="btn btn-sm btn-info view-resume-btn"
+            //                     data-submission-id="${submission._id}"
+            //                     data-resume-link="${resume.driveViewLink}"
+            //                     data-student-name="${resume.studentName}"
+            //                 >
+            //                     Preview Resume
+            //                 </button>
         } else {
             tableHtml += `
                 <tr>
