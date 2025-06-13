@@ -372,7 +372,7 @@ app.post('/api/tpo/upload-resumes', verifyToken, uploads.array('resumeFiles[]'),
 });
 app.get("/api/tpo/recent-submissions",verifyToken,async (req, res) => {
   try {
-    const email= req.email;
+    const email= req.query.email;
     console.log("email at submissions:",email);
     const submissions = await TpoSubmission.find({ madeBy:email })
       .sort({ createdAt: -1 })
