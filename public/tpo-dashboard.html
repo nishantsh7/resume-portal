@@ -65,28 +65,41 @@
               </div>
 
              <!-- Bulk Resume Upload -->
-<div class="mb-5">
-  <h4 class="mb-3">Upload Resumes (Multiple PDFs)</h4>
-  <div class="mb-3">
-    <label for="resumeFiles" class="form-label">Select PDF Files *</label>
-    <input
-      type="file"
-      class="form-control"
-      id="resumeFiles"
-      name="resumeFiles"
-      accept=".pdf"
-      multiple
-      required
-    />
-    <div class="form-text">You can upload multiple resume PDFs at once.</div>
-  </div>
+<<div class="mb-5">
+    <h4 class="mb-3">Upload Resumes (Multiple PDFs)</h4>
+    <div id="resumeInputsContainer">
+        <div class="mb-3 file-input-group">
+            <label for="studentName1" class="form-label">Student Name *</label>
+            <input
+                type="text"
+                class="form-control student-name-input"
+                id="studentName1"
+                name="studentNames"
+                placeholder="Enter student name"
+                required
+            />
+            <label for="resumeFile1" class="form-label mt-2">Select PDF File *</label>
+            <input
+                type="file"
+                class="form-control resume-file-input"
+                id="resumeFile1"
+                name="resumeFiles"
+                accept=".pdf"
+                required
+            />
+            <div class="form-text">Upload a resume PDF for this student.</div>
+        </div>
+    </div>
+    <button type="button" class="btn btn-primary mt-2" id="addAnotherFileBtn">
+        Add Another Resume
+    </button>
 </div>
 
 <div class="d-grid gap-2 mt-4">
-  <button type="submit" class="btn btn-success">
-    <span class="spinner" id="uploadSpinner"></span>
-    <span class="btn-text">Upload Resumes</span>
-  </button>
+    <button type="submit" class="btn btn-success">
+        <span class="spinner" id="uploadSpinner"></span>
+        <span class="btn-text">Upload Resumes</span>
+    </button>
 </div>
   <!-- Recent Uploads -->
 <div class="container mt-5">

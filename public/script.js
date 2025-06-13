@@ -305,102 +305,201 @@ function handleFileSelect(event) {
 
 // Add event listener for file input (add this to your page initialization)
 // document.getElementById('resumeFile').addEventListener('change', handleFileSelect);
-async function handleTPOSubmit(event) {
-    event.preventDefault();
+document.addEventListener('DOMContentLoaded', function() {
+    const resumeInputsContainer = document.getElementById('resumeInputsContainer');
+    const addAnotherFileBtn = document.getElementById('addAnotherFileBtn');
+    let inputGroupCount = 0; // Initialize to 0, so the first group added by addNewInputGroup will be '1'
 
-    const form = document.getElementById('tpoUploadForm');
-    
-    const formData = new FormData();
-    
-    // Get form fields manually
-    const driveName = form.querySelector('[name="driveName"]')?.value;
-    const branch = form.querySelector('[name="branch"]')?.value;
-    const batchYear = form.querySelector('[name="batchYear"]')?.value;
-    const notes = form.querySelector('[name="notes"]')?.value;
-    
-    // Get files manually
-    const fileInput = document.getElementById('resumeFiles');
-    const files = fileInput.files;
-    
-    // Validate files
-    if (!files || files.length === 0) {
-        alert('Please select at least one PDF file.');
-        return;
-    }
-    
-    // Add form fields to FormData
-    formData.append('driveName', driveName);
-    formData.append('branch', branch);
-    formData.append('batchYear', batchYear);
-    formData.append('notes', notes);
-    
-    // Add user email
-    const userEmail = localStorage.getItem('userEmail');
-    if (userEmail) {
-        formData.append('userEmail', userEmail);
-    }
-    
-    // Add files to FormData
-    for (let i = 0; i < files.length; i++) {
-        formData.append('resumeFiles', files[i]);
-    }
-    
-    console.log(`Uploading ${files.length} files`); // Debug log
+    // Function to add a new input group
+    function addNewInputGroup() {
+        inputGroupCount++;
+        const newInputGroup = document.createElement('div');
+        newInputGroup.classList.add('mb-3', 'file-input-group'); // Add class for easy selection
+        newInputGroup.innerHTML = `
+            <label for="studentName${inputGroupCount}" class="form-label">Student Name *</label>
+            <input
+                type="text"
+                class="form-control student-name-input"
+                id="studentName${inputGroupCount}"
+                name="studentNames"
+                placeholder="Enter student name"
+                required
+            />
+            <label for="resumeFile${inputGroupCount}" class="form-label mt-2">Select PDF File *</label>
+            <input
+                type="file"
+                class="form-control resume-file-input"
+                id="resumeFile${inputGroupCount}"
+                name="resumeFiles"
+                accept=".pdf"
+                required
+            />
+            <div class="form-text">Upload a resume PDF for this student.</div>
+            <button type="button" class="btn btn-danger btn-sm mt-2 remove-file-btn">Remove</button>
+        `;
+        resumeInputsContainer.appendChild(newInputGroup);
 
-    const spinner = document.getElementById('uploadSpinner');
-    if (spinner) {
-        spinner.innerText = 'Uploading...';
-        spinner.style.display = 'inline-block';
+        // Add event listener for the new remove button
+        newInputGroup.querySelector('.remove-file-btn').addEventListener('click', function() {
+            newInputGroup.remove();
+            // You might want to re-index IDs if you care about sequential numbering after removal
+            // For form submission, however, this isn't strictly necessary as we iterate over existing elements.
+        });
     }
 
-    const jwtToken = localStorage.getItem('token');
-    if (!jwtToken) {
-        alert('You are not logged in. Please log in to upload resumes.');
-        if (spinner) {
-            spinner.innerText = '';
-            spinner.style.display = 'none';
+    // Add the initial input group when the page loads
+    addNewInputGroup();
+
+    addAnotherFileBtn.addEventListener('click', addNewInputGroup);
+
+    // Attach handleTPOSubmit to your form's submit event
+    // Ensure your form has an ID like 'tpoUploadForm'
+    const uploadForm = document.getElementById('tpoUploadForm');
+    if (uploadForm) {
+        uploadForm.addEventListener('submit', handleTPOSubmit);
+    }
+
+    // --- Your handleTPOSubmit function, modified ---
+    async function handleTPOSubmit(event) {
+        event.preventDefault();
+
+        const form = document.getElementById('tpoUploadForm'); // Ensure this ID matches your form
+        const formData = new FormData();
+
+        // Get form fields manually (these are static elements)
+        const driveName = form.querySelector('[name="driveName"]')?.value;
+        const branch = form.querySelector('[name="branch"]')?.value;
+        const batchYear = form.querySelector('[name="batchYear"]')?.value;
+        const notes = form.querySelector('[name="notes"]')?.value;
+
+        // Add static form fields to FormData
+        formData.append('driveName', driveName);
+        formData.append('branch', branch);
+        formData.append('batchYear', batchYear);
+        formData.append('notes', notes);
+
+        // Add user email
+        const userEmail = localStorage.getItem('userEmail');
+        if (userEmail) {
+            formData.append('userEmail', userEmail);
         }
-        window.location.href = '/tpo-login.html';
-        return;
-    }
 
-    try {
-        const response = await fetch('https://resume-portal-907r.onrender.com/api/tpo/upload-resumes', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'Authorization': `Bearer ${jwtToken}`,
-            },
+        // --- Collect dynamic student name and resume files ---
+        const fileInputGroups = document.querySelectorAll('.file-input-group'); // Select all dynamic groups
+
+        let allInputsValid = true;
+        let filesPresent = false; // To check if at least one file is selected across all inputs
+
+        fileInputGroups.forEach((group, index) => {
+            const studentNameInput = group.querySelector('.student-name-input');
+            const resumeFileInput = group.querySelector('.resume-file-input');
+
+            // Basic validation for each pair
+            if (!studentNameInput || !studentNameInput.value.trim()) {
+                alert(`Please enter a student name for resume entry #${index + 1}.`);
+                allInputsValid = false;
+                return; // Stop processing this group and mark as invalid
+            }
+
+            if (!resumeFileInput || resumeFileInput.files.length === 0) {
+                alert(`Please select a resume file for student "${studentNameInput.value.trim()}".`);
+                allInputsValid = false;
+                return; // Stop processing this group and mark as invalid
+            }
+
+            // If valid, append to FormData
+            formData.append('studentNames[]', studentNameInput.value.trim());
+            formData.append('resumeFiles[]', resumeFileInput.files[0]); // Append the single file
+            filesPresent = true; // Mark that at least one file pair was found
         });
 
-        const data = await response.json();
-
-        if (response.ok) {
-            alert(data.message || 'Resumes uploaded successfully!');
-            form.reset();
-        } else if (response.status === 401) {
-            console.error('Upload failed: 401 Unauthorized', data.error);
-            alert(`Session expired or unauthorized. Please log in again. Error: ${data.error || 'Unknown'}`);
-            localStorage.removeItem('token');
-            localStorage.removeItem('userRole');
-            localStorage.removeItem('userEmail');
-            localStorage.removeItem('userName');
-            localStorage.removeItem('collegeName');
-            window.location.href = 'signup.html';
-        } else {
-            console.error(`Upload failed: Status ${response.status}`, data.error);
-            alert(`Upload failed: ${data.error || 'An unexpected error occurred. Please try again.'}`);
+        // Overall validation before proceeding
+        if (!allInputsValid) {
+            return; // Stop submission if any validation failed
         }
-    } catch (err) {
-        console.error('Network or unexpected error during upload:', err);
-        alert('Could not connect to the server or an unexpected error occurred. Please check your internet connection and try again.');
-    } finally {
+        if (!filesPresent) {
+            alert('Please add at least one student resume pair.');
+            return;
+        }
+
+        console.log(`Uploading ${fileInputGroups.length} student-resume pairs`); // Debug log
+
+        const uploadButton = form.querySelector('button[type="submit"]');
+        const spinner = document.getElementById('uploadSpinner');
+        const btnText = uploadButton.querySelector('.btn-text');
+
+        // Show spinner and disable button
         if (spinner) {
-            spinner.innerText = '';
-            spinner.style.display = 'none';
+            spinner.style.display = 'inline-block';
+        }
+        if (btnText) {
+            btnText.textContent = 'Uploading...';
+        }
+        if (uploadButton) {
+            uploadButton.disabled = true;
+        }
+
+        const jwtToken = localStorage.getItem('token');
+        if (!jwtToken) {
+            alert('You are not logged in. Please log in to upload resumes.');
+            // Re-enable button and hide spinner before redirect
+            if (spinner) spinner.style.display = 'none';
+            if (btnText) btnText.textContent = 'Upload Resumes';
+            if (uploadButton) uploadButton.disabled = false;
+            window.location.href = '/tpo-login.html'; // Assuming this is the correct login page
+            return;
+        }
+
+        try {
+            const response = await fetch('https://resume-portal-907r.onrender.com/api/tpo/upload-resumes', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Authorization': `Bearer ${jwtToken}`,
+                },
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                alert(data.message || 'Resumes uploaded successfully!');
+                form.reset(); // This will clear static fields
+
+                // Clear all dynamic inputs and add back one fresh input group
+                resumeInputsContainer.innerHTML = '';
+                inputGroupCount = 0; // Reset count for fresh start
+                addNewInputGroup();
+
+            } else if (response.status === 401) {
+                console.error('Upload failed: 401 Unauthorized', data.error);
+                alert(`Session expired or unauthorized. Please log in again. Error: ${data.error || 'Unknown'}`);
+                localStorage.removeItem('token');
+                localStorage.removeItem('userRole');
+                localStorage.removeItem('userEmail');
+                localStorage.removeItem('userName');
+                localStorage.removeItem('collegeName');
+                window.location.href = 'signup.html'; // Assuming this is the general signup/login page
+            } else {
+                console.error(`Upload failed: Status ${response.status}`, data.error);
+                alert(`Upload failed: ${data.error || 'An unexpected error occurred. Please try again.'}`);
+            }
+        } catch (err) {
+            console.error('Network or unexpected error during upload:', err);
+            alert('Could not connect to the server or an unexpected error occurred. Please check your internet connection and try again.');
+        } finally {
+            // Hide spinner and enable button
+            if (spinner) {
+                spinner.style.display = 'none';
+            }
+            if (btnText) {
+                btnText.textContent = 'Upload Resumes';
+            }
+            if (uploadButton) {
+                uploadButton.disabled = false;
+            }
         }
     }
-}
+});
 // document.addEventListener('DOMContentLoaded', async () => {
 //   await loadRecentUploads();
 // });
@@ -1287,3 +1386,4 @@ document.getElementById('pdfViewerModal').addEventListener('hidden.bs.modal', fu
     iframe.style.transform = 'scale(1)';
     iframe.parentElement.style.width = '100%';
 }); 
+

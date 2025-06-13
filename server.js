@@ -301,59 +301,74 @@ app.post('/api/submit', verifyToken, upload.single('resume'), async (req, res) =
 // const upload = multer({ storage: multer.memoryStorage() });
 const uploads = multer({ storage: multer.memoryStorage() });
 
-app.post('/api/tpo/upload-resumes', verifyToken, uploads.array('resumeFiles'), async (req, res) => {
-  try {
-    const { driveName, branch, batchYear, notes, userEmail } = req.body;
-    const files = req.files;
+app.post('/api/tpo/upload-resumes', verifyToken, uploads.array('resumeFiles[]'), async (req, res) => {
+    try {
+        // Destructure static body fields and the new studentNames array
+        const { driveName, branch, batchYear, notes, userEmail, studentNames } = req.body;
+        const files = req.files; // Multer parses files into req.files
 
-    // Add validation
-    if (!files || files.length === 0) {
-      return res.status(400).json({ error: 'No files uploaded' });
-    }
-
-    // Debug logs
-    console.log('Request body:', req.body);
-    console.log('Files count:', files.length);
-     // Debug user object
-
-    const savedFiles = await Promise.all(
-      files.map(async (file, index) => {
-        try {
-          console.log(`Uploading file ${index + 1}:`, file.originalname);
-          const driveRes = await uploadToGoogleDrive(file, userEmail);
-          return {
-            originalName: file.originalname,
-            mimeType: file.mimetype,
-            driveFileId: driveRes.id,
-            driveViewLink: driveRes.webViewLink,
-          };
-        } catch (fileError) {
-          console.error(`Error uploading file ${file.originalname}:`, fileError);
-          throw new Error(`Failed to upload ${file.originalname}: ${fileError.message}`);
+        // --- New Validations for dynamic inputs ---
+        if (!files || files.length === 0) {
+            return res.status(400).json({ error: 'No resume files uploaded' });
         }
-      })
-    );
+        if (!studentNames || !Array.isArray(studentNames) || studentNames.length === 0) {
+            return res.status(400).json({ error: 'No student names provided or invalid format' });
+        }
+        if (studentNames.length !== files.length) {
+            return res.status(400).json({ error: 'Mismatch: Number of student names does not match number of resume files.' });
+        }
+        // --- End New Validations ---
 
-    // Create submission according to your schema
-    const submission = await TpoSubmission.create({
-      madeBy: userEmail, // Required string field - using email from form
-      uploadedBy: req.userId, // ObjectId reference to User
-      driveName,
-      branch,
-      batchYear: parseInt(batchYear), // Ensure it's a number
-      notes,
-      resumes: savedFiles,
-    });
+        // Debug logs
+        console.log('Request body (static fields):', { driveName, branch, batchYear, notes, userEmail });
+        console.log('Student Names:', studentNames); // Log the student names array
+        console.log('Files count:', files.length);
 
-    console.log('Submission created:', submission._id);
-    res.json({ message: `${files.length} resumes uploaded successfully.` });
-  } catch (error) {
-    console.error('Upload error details:', error);
-    res.status(500).json({ 
-      error: 'Upload failed. Please try again.',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
+        const savedFiles = await Promise.all(
+            files.map(async (file, index) => {
+                try {
+                    // Get the corresponding student name for this file
+                    const studentName = studentNames[index];
+                    console.log(`Uploading file ${index + 1} for student "${studentName}":`, file.originalname);
+
+                    const driveRes = await uploadToGoogleDrive(file, userEmail,"tpo"); // Assuming userEmail for folder context
+
+                    return {
+                        studentName: studentName, // Store the student name with the file details
+                        originalName: file.originalname,
+                        mimeType: file.mimetype,
+                        driveFileId: driveRes.id,
+                        driveViewLink: driveRes.webViewLink,
+                    };
+                } catch (fileError) {
+                    console.error(`Error uploading file ${file.originalname} for student ${studentNames[index]}:`, fileError);
+                    throw new Error(`Failed to upload ${file.originalname}: ${fileError.message}`);
+                }
+            })
+        );
+
+        // Create submission according to your schema
+        // Ensure your TpoSubmission schema can store an array of objects for resumes,
+        // where each object contains 'studentName' along with other file details.
+        const submission = await TpoSubmission.create({
+            madeBy: userEmail, // Required string field - using email from form
+            uploadedBy: req.userId, // ObjectId reference to User
+            driveName,
+            branch,
+            batchYear: parseInt(batchYear), // Ensure it's a number
+            notes,
+            resumes: savedFiles, // 'savedFiles' now includes 'studentName' for each entry
+        });
+
+        console.log('Submission created:', submission._id);
+        res.json({ message: `${files.length} resumes uploaded successfully.` });
+    } catch (error) {
+        console.error('Upload error details:', error);
+        res.status(500).json({
+            error: 'Upload failed. Please try again.',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
 });
 app.get("/api/tpo/recent-submissions",verifyToken,async (req, res) => {
   try {
