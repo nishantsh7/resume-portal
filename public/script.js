@@ -500,9 +500,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
-// document.addEventListener('DOMContentLoaded', async () => {
-//   await loadRecentUploads();
-// });
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadRecentUploads();
+});
+
 
 async function loadRecentUploads() {
     const recentUploadsContainer = document.getElementById("recentUploads");
@@ -511,9 +512,8 @@ async function loadRecentUploads() {
         return;
     }
 
-    // 1. Get the JWT token from localStorage
     const jwtToken = localStorage.getItem('token');
-    const userEmail = localStorage.getItem('userEmail'); // Fix: Get userEmail from localStorage
+    const userEmail = localStorage.getItem('userEmail');
 
     if (!jwtToken) {
         console.error('No JWT token found. User not authenticated for recent uploads.');
@@ -524,11 +524,9 @@ async function loadRecentUploads() {
     if (!userEmail) {
         console.error('No user email found. User session incomplete.');
         recentUploadsContainer.innerHTML = "<p class='text-danger'>Session incomplete. Please log in again.</p>";
-        // Clear incomplete session
-        clearUserSession();
+        clearUserSession(); // Assuming this function exists to clear local storage
         return;
     }
-   
 
     // Show loading state
     recentUploadsContainer.innerHTML = "<p>Loading recent uploads...</p>";
@@ -556,6 +554,94 @@ async function loadRecentUploads() {
         console.error('Network or unexpected error loading recent uploads:', err);
         recentUploadsContainer.innerHTML = "<p class='text-danger'>Could not connect to the server. Please check your internet connection and try again.</p>";
     }
+}
+
+/**
+ * Renders the fetched upload data into a table, including student names.
+ * @param {Array} submissions An array of submission objects, each potentially having a 'resumes' array.
+ * @param {HTMLElement} container The DOM element to render the table into.
+ */
+function renderUploadsTable(submissions, container) {
+    if (!submissions || submissions.length === 0) {
+        container.innerHTML = "<p>No recent uploads found.</p>";
+        return;
+    }
+
+    let tableHtml = `
+        <table class="table table-hover table-striped">
+            <thead class="table-dark">
+                <tr>
+                    <th>Drive Name</th>
+                    <th>Branch</th>
+                    <th>Batch Year</th>
+                    <th>Uploaded On</th>
+                    <th>Student Name</th>
+                    <th>Resume File</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    submissions.forEach(submission => {
+        // Format the upload date
+        const uploadDate = new Date(submission.createdAt).toLocaleDateString('en-GB', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+
+        if (submission.resumes && submission.resumes.length > 0) {
+            submission.resumes.forEach(resume => {
+                tableHtml += `
+                    <tr>
+                        <td>${submission.driveName || 'N/A'}</td>
+                        <td>${submission.branch || 'N/A'}</td>
+                        <td>${submission.batchYear || 'N/A'}</td>
+                        <td>${uploadDate}</td>
+                        <td>${resume.studentName || 'N/A'}</td>
+                        <td>
+                            <a href="${resume.driveViewLink}" target="_blank" class="text-decoration-none">
+                                ${resume.originalName || 'N/A'} <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-info view-submission-btn" data-submission-id="${submission._id}">
+                                View Details
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        } else {
+            // Handle submissions with no resumes (shouldn't happen with current validation, but good for robustness)
+            tableHtml += `
+                <tr>
+                    <td>${submission.driveName || 'N/A'}</td>
+                    <td>${submission.branch || 'N/A'}</td>
+                    <td>${submission.batchYear || 'N/A'}</td>
+                    <td>${uploadDate}</td>
+                    <td colspan="3">No resumes uploaded for this submission.</td>
+                </tr>
+            `;
+        }
+    });
+
+    tableHtml += `
+            </tbody>
+        </table>
+    `;
+    container.innerHTML = tableHtml;
+
+    // Optional: Add event listeners for "View Details" buttons if you have a modal or detail page
+    // const detailButtons = container.querySelectorAll('.view-submission-btn');
+    // detailButtons.forEach(button => {
+    //     button.addEventListener('click', (event) => {
+    //         const submissionId = event.target.dataset.submissionId;
+    //         console.log('View details for submission ID:', submissionId);
+    //         // Implement your logic to show submission details (e.g., open a modal)
+    //     });
+    // });
 }
 
 function handleHttpError(status, data, container) {
