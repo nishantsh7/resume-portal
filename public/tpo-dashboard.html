@@ -48,7 +48,7 @@
                     </div>
                     <div class="mb-3">
                       <label for="branch" class="form-label">Branch *</label>
-                      <input namr="branch" type="text" class="form-control" id="branch" required />
+                      <input name="branch" type="text" class="form-control" id="branch" required />
                     </div>
                   </div>
                   <div class="col-md-6">
@@ -65,7 +65,7 @@
               </div>
 
              <!-- Bulk Resume Upload -->
-<<div class="mb-5">
+<div class="mb-5">
     <h4 class="mb-3">Upload Resumes (Multiple PDFs)</h4>
     <div id="resumeInputsContainer">
         <div class="mb-3 file-input-group">
@@ -108,6 +108,21 @@
       <h4 class="card-title mb-3">Your Recent Resume Uploads</h4>
       <div id="recentUploads" class="table-responsive">
         <p>Loading...</p>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal fade" id="resumePreviewModal" tabindex="-1" aria-labelledby="resumePreviewModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered"> <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="resumePreviewModalLabel">Resume Preview: <span id="modalStudentName"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <iframe id="resumeViewer" style="width:100%; height:80vh;" frameborder="0"></iframe>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>

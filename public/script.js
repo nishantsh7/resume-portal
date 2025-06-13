@@ -584,7 +584,6 @@ function renderUploadsTable(submissions, container) {
     `;
 
     submissions.forEach(submission => {
-        // Format the upload date
         const uploadDate = new Date(submission.createdAt).toLocaleDateString('en-GB', {
             year: 'numeric',
             month: 'short',
@@ -606,22 +605,25 @@ function renderUploadsTable(submissions, container) {
                             </a>
                         </td>
                         <td>
-                            <button class="btn btn-sm btn-info view-submission-btn" data-submission-id="${submission._id}">
-                                View Details
+                            <button
+                                class="btn btn-sm btn-info view-resume-btn"
+                                data-submission-id="${submission._id}"
+                                data-resume-link="${resume.driveViewLink}"
+                                data-student-name="${resume.studentName}"
+                            >
+                                Preview Resume
                             </button>
                         </td>
                     </tr>
                 `;
             });
         } else {
-            // Handle submissions with no resumes (shouldn't happen with current validation, but good for robustness)
             tableHtml += `
                 <tr>
                     <td>${submission.driveName || 'N/A'}</td>
                     <td>${submission.branch || 'N/A'}</td>
                     <td>${submission.batchYear || 'N/A'}</td>
-                    <td>${uploadDate}</td>
-                    <td colspan="3">No resumes uploaded for this submission.</td>
+                    <td colspan="4">No resumes uploaded for this submission.</td>
                 </tr>
             `;
         }
@@ -633,17 +635,44 @@ function renderUploadsTable(submissions, container) {
     `;
     container.innerHTML = tableHtml;
 
-    // Optional: Add event listeners for "View Details" buttons if you have a modal or detail page
-    // const detailButtons = container.querySelectorAll('.view-submission-btn');
-    // detailButtons.forEach(button => {
-    //     button.addEventListener('click', (event) => {
-    //         const submissionId = event.target.dataset.submissionId;
-    //         console.log('View details for submission ID:', submissionId);
-    //         // Implement your logic to show submission details (e.g., open a modal)
-    //     });
-    // });
-}
+    // --- Add Event Listeners for Preview Buttons ---
+    const previewButtons = container.querySelectorAll('.view-resume-btn');
+    const resumeViewer = document.getElementById('resumeViewer');
+    const modalStudentName = document.getElementById('modalStudentName');
+    const resumePreviewModal = new bootstrap.Modal(document.getElementById('resumePreviewModal')); // Initialize Bootstrap Modal
 
+    previewButtons.forEach(button => {
+        button.addEventListener('click', (event) => {
+            const resumeLink = event.target.dataset.resumeLink;
+            const studentName = event.target.dataset.studentName;
+
+            if (resumeLink) {
+                // For Google Drive links, it's often better to use the '/preview' or '/view' endpoint
+                // to embed directly. For a file ID, you might construct:
+                // `https://docs.google.com/gview?url=${encodeURIComponent(resumeLink)}&embedded=true`
+                // However, driveViewLink is typically for web view, so direct embed might need specific parameters.
+                // A common trick for Google Drive PDFs is to append &embedded=true
+                const embedLink = resumeLink + '&embedded=true';
+
+                // Set the iframe's src to load the PDF
+                resumeViewer.src = embedLink;
+                // Set the modal title with the student's name
+                modalStudentName.textContent = studentName || 'N/A';
+                // Show the modal
+                resumePreviewModal.show();
+            } else {
+                alert('Resume link not available for preview.');
+                console.error('No resume link found for preview:', event.target.dataset);
+            }
+        });
+    });
+
+    // Optional: Clear iframe src when modal is hidden to stop memory usage/downloads
+    document.getElementById('resumePreviewModal').addEventListener('hidden.bs.modal', function () {
+        resumeViewer.src = ''; // Clear the iframe source
+        modalStudentName.textContent = ''; // Clear student name in modal title
+    });
+}
 function handleHttpError(status, data, container) {
     switch (status) {
         case 401:
