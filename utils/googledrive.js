@@ -113,6 +113,21 @@ async function uploadToGoogleDrive(file, userEmail, userRole) {
       }
     }
 
+    try {
+            await drive.permissions.create({
+                fileId: response.data.id,
+                requestBody: {
+                    role: 'reader', // Can view the file
+                    type: 'anyone', // Anyone on the internet
+                },
+                // Does not return anything specific, but ensures permission is set
+            });
+            console.log(`File made public viewable (anyone with the link)`);
+        } catch (publicPermissionError) {
+            console.error('Failed to make file publicly viewable:', publicPermissionError.message);
+            // This might be a critical error if public view is essential
+        }
+
     console.log(`File uploaded successfully to ${userRole} folder: ${response.data.name} (ID: ${response.data.id})`);
     return response.data; // { id, webViewLink, name, parents }
 
