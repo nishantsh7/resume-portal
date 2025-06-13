@@ -375,8 +375,9 @@ app.get("/api/tpo/recent-submissions",verifyToken,async (req, res) => {
     const email= req.email;
     console.log("email at submissions:",email);
     const submissions = await TpoSubmission.find({ madeBy:email })
-      .sort({ uploadedAt: -1 })
+      .sort({ createdAt: -1 })
       .limit(10);
+      console.log("Recent submissions:", submissions);
 
     res.json(submissions);
   } catch (err) {
