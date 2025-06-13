@@ -676,64 +676,64 @@ function clearUserSession() {
     keysToRemove.forEach(key => localStorage.removeItem(key));
 }
 
-function renderUploadsTable(data, container) {
-    if (!data || data.length === 0) {
-        container.innerHTML = "<p class='text-muted'>No recent uploads found.</p>";
-        return;
-    }
+// function renderUploadsTable(data, container) {
+//     if (!data || data.length === 0) {
+//         container.innerHTML = "<p class='text-muted'>No recent uploads found.</p>";
+//         return;
+//     }
 
-    let tableHTML = `
-        <div class="table-responsive">
-            <table class="table table-bordered table-hover">
-                <thead class="table-light">
-                    <tr>
-                        <th>Drive Name</th>
-                        <th>Branch</th>
-                        <th>Batch Year</th>
-                        <th>Upload Date</th>
-                        <th>Resumes Count</th>
-                        <th>Drive Folder</th>
-                    </tr>
-                </thead>
-                <tbody>
-    `;
+//     let tableHTML = `
+//         <div class="table-responsive">
+//             <table class="table table-bordered table-hover">
+//                 <thead class="table-light">
+//                     <tr>
+//                         <th>Drive Name</th>
+//                         <th>Branch</th>
+//                         <th>Batch Year</th>
+//                         <th>Upload Date</th>
+//                         <th>Resumes Count</th>
+//                         <th>Drive Folder</th>
+//                     </tr>
+//                 </thead>
+//                 <tbody>
+//     `;
 
-    data.forEach(upload => {
-        const formattedDate = formatDate(upload.uploadedAt);
-        const fileCount = upload.resumes?.length || 0;
+//     data.forEach(upload => {
+//         const formattedDate = formatDate(upload.uploadedAt);
+//         const fileCount = upload.resumes?.length || 0;
         
-        tableHTML += `
-            <tr>
-                <td>${escapeHtml(upload.driveName) || 'N/A'}</td>
-                <td>${escapeHtml(upload.branch) || 'N/A'}</td>
-                <td>${escapeHtml(upload.batchYear) || 'N/A'}</td>
-                <td>${formattedDate}</td>
-                <td>
-                    <span class="badge bg-primary">${fileCount}</span>
-                </td>
-                <td>
-                    ${upload.folderId 
-                        ? `<a href="https://drive.google.com/drive/folders/${escapeHtml(upload.folderId)}" 
-                             target="_blank" 
-                             rel="noopener noreferrer" 
-                             class="btn btn-sm btn-outline-primary">
-                             <i class="fas fa-external-link-alt"></i> View Folder
-                           </a>`
-                        : '<span class="text-muted">N/A</span>'
-                    }
-                </td>
-            </tr>
-        `;
-    });
+//         tableHTML += `
+//             <tr>
+//                 <td>${escapeHtml(upload.driveName) || 'N/A'}</td>
+//                 <td>${escapeHtml(upload.branch) || 'N/A'}</td>
+//                 <td>${escapeHtml(upload.batchYear) || 'N/A'}</td>
+//                 <td>${formattedDate}</td>
+//                 <td>
+//                     <span class="badge bg-primary">${fileCount}</span>
+//                 </td>
+//                 <td>
+//                     ${upload.folderId 
+//                         ? `<a href="https://drive.google.com/drive/folders/${escapeHtml(upload.folderId)}" 
+//                              target="_blank" 
+//                              rel="noopener noreferrer" 
+//                              class="btn btn-sm btn-outline-primary">
+//                              <i class="fas fa-external-link-alt"></i> View Folder
+//                            </a>`
+//                         : '<span class="text-muted">N/A</span>'
+//                     }
+//                 </td>
+//             </tr>
+//         `;
+//     });
 
-    tableHTML += `
-                </tbody>
-            </table>
-        </div>
-    `;
+//     tableHTML += `
+//                 </tbody>
+//             </table>
+//         </div>
+//     `;
     
-    container.innerHTML = tableHTML;
-}
+//     container.innerHTML = tableHTML;
+// }
 
 function formatDate(dateString) {
     if (!dateString) return 'N/A';
