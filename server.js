@@ -9,12 +9,18 @@ const fs = require('fs');
 const archiver = require('archiver');
 const XLSX = require('xlsx');
 const mongoose = require('mongoose');
+const FormData = require('form-data');
+const axios = require('axios');
+
+
 // const Joi = require('joi'); // Add this package: npm install joi
 require('dotenv').config();
 const User = require('./models/User');
 const Submission = require('./models/Submission');
-const TpoSubmission = require('./models/TpoSubmission'); // Your schema
+const TpoSubmission = require('./models/TpoSubmission');
+const Resume = require('./models/Resume'); 
 const { uploadToGoogleDrive,downloadFromGoogleDrive, getFileInfo } = require('./utils/googledrive');
+
 
 
 
@@ -206,19 +212,141 @@ app.post('/api/login', async (req, res) => {
     }
 });
 // Submit profile and resume
+// app.post('/api/submit', verifyToken, upload.single('resume'), async (req, res) => {
+//     try {
+        
+//         // Check if user already has a submission
+//         let submission = await Submission.findOne({ userId: req.userId });
+        
+//         // If old resume exists and new resume is uploaded, delete the old one from Google Drive
+//         if (submission && submission.resume && submission.resume.driveFileId && req.file) {
+//             try {
+//                 await deleteFromGoogleDrive(submission.resume.driveFileId);
+//                 console.log(`Deleted old resume from Drive: ${submission.resume.originalName}`);
+//             } catch (deleteError) {
+//                 console.error('Error deleting old resume from Drive:', deleteError);
+//                 // Continue with the update even if delete fails
+//             }
+//         }
+
+//         const updateData = {
+//             fullName: req.body.fullName,
+//             mobileNumber: req.body.mobile,
+//             email: req.body.email,
+//             institution: req.body.institution,
+//             bio: req.body.bio
+//         };
+
+//         // Only update resume data if a new file was uploaded
+//         if (req.file) {
+//             try {
+//     const form = new FormData();
+//     form.append('file', req.file.buffer, req.file.originalname);
+
+//     const affindaRes = await axios.post(
+//       'https://api.affinda.com/v2/resumes',
+//       form,
+//       {
+//         headers: {
+//           Authorization: `Bearer ${process.env.AFFINDA_API_KEY}`,
+//           ...form.getHeaders(),
+//         },
+//       }
+//     );
+
+//     const resumeData = affindaRes.data.data;
+
+//     const structured = {
+//       name: resumeData.name?.raw || '',
+//       email: resumeData.emails?.[0] || '',
+//       phone: resumeData.phoneNumbers?.[0] || '',
+//       skills: resumeData.skills?.map(s => s.name) || [],
+//       experience: resumeData.totalYearsExperience || 0,
+//       projects: (resumeData.projects || []).map(p => ({
+//         name: p.name,
+//         description: p.description,
+//       })),
+//     };
+
+//     const savedResume = await Resume.create(structured);
+
+//     const driveRes = await uploadToGoogleDrive(req.file, req.body.email, "student");
+//     const resume = {
+//       originalName: req.file.originalname,
+//       mimeType: req.file.mimetype,
+//       driveFileId: driveRes.id,
+//       driveViewLink: driveRes.webViewLink,
+//     };
+
+//     updateData.resume = resume;
+
+//     res.json({ success: true, savedResume });
+//   } catch (driveUploadError) {
+//     console.error('Error uploading to Google Drive:', driveUploadError);
+//     return res.status(500).json({ error: 'Failed to upload resume to Google Drive' });
+//   }
+// }
+
+//         if (submission) {
+//             // Update existing submission
+//             submission = await Submission.findOneAndUpdate(
+//                 { userId: req.userId },
+//                 updateData,
+//                 { new: true }
+//             );
+//             res.json({
+//                 message: 'Profile updated successfully',
+//                 submission
+//             });
+//         } else {
+//             // Create new submission
+//             if (!req.file) {
+//                 return res.status(400).json({ error: 'Resume file is required for initial submission' });
+//             }
+            
+//             try {
+//                 const driveRes = await uploadToGoogleDrive(req.file, req.body.email,"student");
+//                 const resume = {
+//                     originalName: req.file.originalname,
+//                     mimeType: req.file.mimetype,
+//                     driveFileId: driveRes.id,
+//                     driveViewLink: driveRes.webViewLink
+//                 };
+
+//                 submission = await Submission.create({
+//                     userId: req.userId,
+//                     ...updateData,
+//                     resume: resume
+//                 });
+
+//                 res.status(201).json({
+//                     message: 'Profile submitted successfully',
+//                     submission
+//                 });
+//             } catch (driveUploadError) {
+//                 console.error('Error uploading to Google Drive:', driveUploadError);
+//                 return res.status(500).json({ error: 'Failed to upload resume to Google Drive' });
+//             }
+//         }
+//     } catch (error) {
+//         console.error('Submission error:', error);
+//         res.status(500).json({ error: 'Error submitting profile' });
+//     }
+// });
+
+
 app.post('/api/submit', verifyToken, upload.single('resume'), async (req, res) => {
     try {
         // Check if user already has a submission
         let submission = await Submission.findOne({ userId: req.userId });
-        
-        // If old resume exists and new resume is uploaded, delete the old one from Google Drive
-        if (submission && submission.resume && submission.resume.driveFileId && req.file) {
+
+        // Delete old resume from Drive if new one is uploaded
+        if (submission?.resume?.driveFileId && req.file) {
             try {
                 await deleteFromGoogleDrive(submission.resume.driveFileId);
                 console.log(`Deleted old resume from Drive: ${submission.resume.originalName}`);
             } catch (deleteError) {
                 console.error('Error deleting old resume from Drive:', deleteError);
-                // Continue with the update even if delete fails
             }
         }
 
@@ -230,67 +358,96 @@ app.post('/api/submit', verifyToken, upload.single('resume'), async (req, res) =
             bio: req.body.bio
         };
 
-        // Only update resume data if a new file was uploaded
+        let savedResume = null;
+
+        // Upload and parse new resume if provided
         if (req.file) {
             try {
-                const driveRes = await uploadToGoogleDrive(req.file, req.body.email,"student");
-                const resume = {
+                const form = new FormData();
+                form.append('file', req.file.buffer, req.file.originalname);
+
+                const affindaRes = await axios.post(
+                    'https://api.affinda.com/v2/resumes',
+                    form,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${process.env.AFFINDA_API_KEY}`,
+                            ...form.getHeaders()
+                        }
+                    }
+                );
+
+                const resumeData = affindaRes.data.data;
+                console.log('Parsed resume data:', resumeData);
+
+                                const structured = {
+                    name: resumeData.name?.raw || '',
+                    email: resumeData.emails?.[0] || '',
+                    phone: resumeData.phoneNumbers?.[0] || '',
+                    linkedIn: resumeData.linkedin || '',
+                    skills: resumeData.skills?.map(s => s.name) || [],
+                    workExperience: resumeData.workExperience?.map(exp => ({
+                        jobTitle: exp.jobTitle,
+                        organization: exp.organization,
+                        dates: exp.dates,
+                        jobDescription: exp.jobDescription
+                    })) || [],
+                    experience: resumeData.totalYearsExperience || 0,
+                    projects: (resumeData.sections || [])
+                        .filter(s => s.sectionType === 'Projects')
+                        .map(s => ({ details: s.text }))
+                    };
+
+
+                savedResume = await Resume.create(structured);
+
+                const driveRes = await uploadToGoogleDrive(req.file, req.body.email, "student");
+                updateData.resume = {
                     originalName: req.file.originalname,
                     mimeType: req.file.mimetype,
                     driveFileId: driveRes.id,
                     driveViewLink: driveRes.webViewLink
                 };
-                updateData.resume = resume;
-            } catch (driveUploadError) {
-                console.error('Error uploading to Google Drive:', driveUploadError);
+            } catch (uploadError) {
+                console.error('Error uploading to Google Drive:', uploadError);
                 return res.status(500).json({ error: 'Failed to upload resume to Google Drive' });
             }
         }
 
         if (submission) {
             // Update existing submission
-            submission = await Submission.findOneAndUpdate(
+            const updated = await Submission.findOneAndUpdate(
                 { userId: req.userId },
                 updateData,
                 { new: true }
             );
-            res.json({
+            return res.json({
                 message: 'Profile updated successfully',
-                submission
+                submission: updated,
+                savedResume
             });
         } else {
-            // Create new submission
+            // Require resume on initial submission
             if (!req.file) {
                 return res.status(400).json({ error: 'Resume file is required for initial submission' });
             }
-            
-            try {
-                const driveRes = await uploadToGoogleDrive(req.file, req.body.email,"student");
-                const resume = {
-                    originalName: req.file.originalname,
-                    mimeType: req.file.mimetype,
-                    driveFileId: driveRes.id,
-                    driveViewLink: driveRes.webViewLink
-                };
 
-                submission = await Submission.create({
-                    userId: req.userId,
-                    ...updateData,
-                    resume: resume
-                });
+            const created = await Submission.create({
+                userId: req.userId,
+                ...updateData
+            });
 
-                res.status(201).json({
-                    message: 'Profile submitted successfully',
-                    submission
-                });
-            } catch (driveUploadError) {
-                console.error('Error uploading to Google Drive:', driveUploadError);
-                return res.status(500).json({ error: 'Failed to upload resume to Google Drive' });
-            }
+            return res.status(201).json({
+                message: 'Profile submitted successfully',
+                submission: created,
+                savedResume
+            });
         }
     } catch (error) {
         console.error('Submission error:', error);
-        res.status(500).json({ error: 'Error submitting profile' });
+        if (!res.headersSent) {
+            return res.status(500).json({ error: 'Error submitting profile' });
+        }
     }
 });
 
