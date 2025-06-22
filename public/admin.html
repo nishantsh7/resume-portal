@@ -30,117 +30,49 @@
         </div>
     </nav>
 
-   <div class="container mt-5">
-  <ul class="nav nav-tabs mb-4" id="submissionTabs" role="tablist">
-    <li class="nav-item" role="presentation">
-      <button class="nav-link active" id="student-tab" data-bs-toggle="tab" data-bs-target="#studentSubmissions" type="button" role="tab">Student Submissions</button>
-    </li>
-    <li class="nav-item" role="presentation">
-      <button class="nav-link" id="tpo-tab" data-bs-toggle="tab" data-bs-target="#tpoSubmissions" type="button" role="tab">TPO Submissions</button>
-    </li>
-  </ul>
-
-  <div class="tab-content" id="submissionTabContent">
-    <!-- Student Submissions Tab -->
-    <div class="tab-pane fade show active" id="studentSubmissions" role="tabpanel">
-      <div class="card shadow">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="card-title">Student Submissions</h2>
-            <div>
-              <button class="btn btn-success me-2" onclick="downloadAllRecords()">
-                <i class="fas fa-file-excel"></i> Download Records
-              </button>
-              <button class="btn btn-success" onclick="downloadAllResumes()">
-                <i class="fas fa-download"></i> Download All Resumes
-              </button>
-              <button class="btn btn-primary ms-2" onclick="sendAllToRecruiter('student')">
-                <i class="fas fa-share-square"></i> Send All to Recruiter
-              </button>
-            </div>
-          </div>
-          <div class="table-responsive">
-            <table class="table table-striped" id="submissionsTable">
-              <thead>
-                <tr>
-                  <th>Full Name</th>
-                  <th>Email</th>
-                  <th>Mobile</th>
-                  <th>Institution</th>
-                  <th>Submission Date</th>
-                  <th>Downloaded</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <!-- Student submissions will be loaded here -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TPO Submissions Tab -->
-    <div class="tab-pane fade" id="tpoSubmissions" role="tabpanel">
-      <div class="card shadow">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="card-title">TPO Submissions</h2>
-            <button class="btn btn-primary" onclick="sendAllToRecruiter('tpo')">
-              <i class="fas fa-share-square"></i> Send All to Recruiter
-            </button>
-          </div>
-          <div class="table-responsive">
-            <table class="table table-striped" id="tpoTable">
-              <thead>
-                <tr>
-                  <th>Drive Name</th>
-                  <th>Branch</th>
-                  <th>Batch Year</th>
-                  <th>Uploaded By</th>
-                  <th>Submission Date</th>
-                  <th>Notes</th>
-                  <th>Files</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <!-- TPO submissions will be loaded here -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-    <!-- PDF Viewer -->
-    <div class="modal fade" id="pdfViewerModal" tabindex="-1" aria-labelledby="pdfViewerModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="pdfViewerModalLabel">View Resume</h5>
-                    <div class="zoom-controls ms-3">
-                        <button class="btn btn-sm btn-outline-primary" onclick="zoomPDF('out')">
-                            <i class="fas fa-search-minus"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-primary mx-1" onclick="zoomPDF('reset')">
-                            <i class="fas fa-undo"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-primary" onclick="zoomPDF('in')">
-                            <i class="fas fa-search-plus"></i>
+    <div class="container mt-5">
+        <div class="card shadow">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <h4 class="card-title mb-0">Resume Submissions</h4>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-success" onclick="downloadAllRecords()">
+                            <i class="fas fa-download"></i> Download All
                         </button>
                     </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body p-0">
-                    <div class="pdf-container" style="height: 85vh; overflow: auto;">
-                        <iframe id="pdfViewer" style="width: 100%; height: 100%; border: none; display: block;"></iframe>
+                
+                <!-- Search Bar -->
+                <div class="row mb-4">
+                    <div class="col-md-8">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-search"></i>
+                            </span>
+                            <input 
+                                type="text" 
+                                class="form-control" 
+                                id="searchInput"
+                                placeholder="Search by skills, name, email, institution... (separate keywords with spaces)"
+                                onkeyup="handleSearch(event)"
+                            >
+                            <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()">
+                                <i class="fas fa-times"></i> Clear
+                            </button>
+                        </div>
+                        <small class="text-muted">
+                            Tip: Submissions with matching skills will appear first, followed by other matches
+                        </small>
                     </div>
+                    <div class="col-md-4">
+                        <div class="text-end">
+                            <span class="badge bg-info" id="resultCount">0 submissions</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="recentUploads" class="table-responsive">
+                    <p>Loading...</p>
                 </div>
             </div>
         </div>
@@ -148,5 +80,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="script.js"></script>
+    <script src="admin.js"></script>
 </body>
-</html> 
+</html>

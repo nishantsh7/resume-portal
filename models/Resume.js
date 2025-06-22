@@ -15,6 +15,7 @@ const ResumeSchema = new mongoose.Schema({
   workExperience:[Object],
   experience: Number,
   projects:[Object],
+  profession:String,
   uploadedAt: {
     type: Date,
     default: Date.now

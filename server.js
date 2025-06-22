@@ -13,6 +13,7 @@ const FormData = require('form-data');
 const axios = require('axios');
 
 
+
 // const Joi = require('joi'); // Add this package: npm install joi
 require('dotenv').config();
 const User = require('./models/User');
@@ -378,7 +379,7 @@ app.post('/api/submit', verifyToken, upload.single('resume'), async (req, res) =
                 );
 
                 const resumeData = affindaRes.data.data;
-                console.log('Parsed resume data:', resumeData);
+                // console.log('Parsed resume data:', resumeData);
 
                                 const structured = {
                     name: resumeData.name?.raw || '',
@@ -395,7 +396,8 @@ app.post('/api/submit', verifyToken, upload.single('resume'), async (req, res) =
                     experience: resumeData.totalYearsExperience || 0,
                     projects: (resumeData.sections || [])
                         .filter(s => s.sectionType === 'Projects')
-                        .map(s => ({ details: s.text }))
+                        .map(s => ({ details: s.text })),
+                    profession: resumeData.profession || '',
                     };
 
 
@@ -487,6 +489,43 @@ app.post('/api/tpo/upload-resumes', verifyToken, uploads.array('resumeFiles[]'),
                     // Get the corresponding student name for this file
                     const studentName = studentNames[index];
                     console.log(`Uploading file ${index + 1} for student "${studentName}":`, file.originalname);
+                    const form = new FormData();
+                form.append('file', file.buffer, file.originalname);
+
+                const affindaRes = await axios.post(
+                    'https://api.affinda.com/v2/resumes',
+                    form,
+                    {
+                        headers: {
+                            Authorization: `Bearer ${process.env.AFFINDA_API_KEY}`,
+                            ...form.getHeaders()
+                        }
+                    }
+                );
+
+                const resumeData = affindaRes.data.data;
+                // console.log('Parsed resume data:', resumeData);
+                              const structured = {
+                    name: resumeData.name?.raw || '',
+                    email: resumeData.emails?.[0] || '',
+                    phone: resumeData.phoneNumbers?.[0] || '',
+                    linkedIn: resumeData.linkedin || '',
+                    skills: resumeData.skills?.map(s => s.name) || [],
+                    workExperience: resumeData.workExperience?.map(exp => ({
+                        jobTitle: exp.jobTitle,
+                        organization: exp.organization,
+                        dates: exp.dates,
+                        jobDescription: exp.jobDescription
+                    })) || [],
+                    experience: resumeData.totalYearsExperience || 0,
+                    projects: (resumeData.sections || [])
+                        .filter(s => s.sectionType === 'Projects')
+                        .map(s => ({ details: s.text })),
+                    profession: resumeData.profession || '',
+                    };
+
+
+                savedResume = await Resume.create(structured);
 
                     const driveRes = await uploadToGoogleDrive(file, userEmail,"tpo"); // Assuming userEmail for folder context
 
@@ -559,29 +598,93 @@ app.get('/api/submission', verifyToken, async (req, res) => {
     }
 });
 
-app.get('/api/admin/tpo-submissions',verifyToken,requireAdmin, async(req, res) => {
-  try {
-    const submissions = await TpoSubmission.find()
-      .populate('uploadedBy', 'fullName email') // Add TPO details
-      .sort({ createdAt: -1 }); // Newest first
-
-    res.json(submissions);
-  } catch (error) {
-    console.error('Error fetching TPO submissions:', error);
-    res.status(500).json({ error: 'Failed to fetch submissions' });
-  }
-});
-
 
 // Admin: Get all submissions
 app.get('/api/submissions', verifyToken, requireAdmin, async (req, res) => {
-    try {
-        const submissions = await Submission.find().populate('userId', 'email');
-        res.json(submissions);
-    } catch (error) {
-        console.error('Error fetching submissions:', error);
-        res.status(500).json({ error: 'Server error' });
+  try {
+    // Import the Resume model at the top of your file if not already done
+    // const Resume = require('./models/Resume'); // Adjust path as needed
+
+    // Fetch student submissions
+    const studentSubmissions = await Submission.find().populate('userId', 'email fullName').lean();
+
+    const formattedStudentSubmissions = await Promise.all(
+      studentSubmissions.map(async (sub) => {
+        // Find corresponding resume data by email
+        const resumeData = await Resume.findOne({ 
+          email: sub.email 
+        }).lean();
+        
+        return {
+          type: 'student',
+          fullName: sub.fullName,
+          email: sub.email,
+          mobile: sub.mobileNumber,
+          institution: sub.institution,
+          createdAt: sub.createdAt,
+          tpoName: '',
+          driveLink: `https://drive.google.com/file/d/${sub.resume?.[0]?.driveFileId}/view` || '',
+          status: sub.qualificationStatus || 'pending',
+          downloaded: sub.isDownloaded || false,
+          // Add resume data
+          skills: resumeData?.skills || [],
+          experience: resumeData?.experience || 0,
+          phone: resumeData?.phone || '',
+          linkedIn: resumeData?.linkedIn || '',
+          workExperience: resumeData?.workExperience || [],
+          projects: resumeData?.projects || [],
+          profession: resumeData?.profession || '',
+          _id: sub._id
+        };
+      })
+    );
+
+    // Fetch TPO submissions
+    const tpoSubmissions = await TpoSubmission.find().populate('uploadedBy', 'fullName email').lean();
+
+    const formattedTpoSubmissions = [];
+
+    for (const sub of tpoSubmissions) {
+      for (const resume of sub.resumes) {
+        // Try to find resume data by multiple criteria
+        const resumeData = await Resume.findOne({ 
+        name: resume.studentName
+        }).lean();
+
+        formattedTpoSubmissions.push({
+          type: 'tpo',
+          fullName: resume.studentName,
+          email: resume.email || '',
+          mobile: resume.phone || '',
+          institution: sub.branch || '',
+          createdAt: sub.createdAt,
+          tpoName: sub.uploadedBy?.fullName || '',
+          driveLink: resume.driveViewLink,
+          status: 'pending',
+          downloaded: false,
+          // Add resume data
+          skills: resumeData?.skills || [],
+          experience: resumeData?.experience || 0,
+          phone: resumeData?.phone || '',
+          linkedIn: resumeData?.linkedIn || '',
+          workExperience: resumeData?.workExperience || [],
+          projects: resumeData?.projects || [],
+          profession: resumeData?.profession || '',
+          _id: sub._id
+        });
+      }
     }
+
+    // Combine & sort by submission date
+    const allSubmissions = [...formattedStudentSubmissions, ...formattedTpoSubmissions].sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
+
+    res.json(allSubmissions);
+  } catch (error) {
+    console.error('Error fetching combined submissions:', error);
+    res.status(500).json({ error: 'Failed to fetch submissions.' });
+  }
 });
 
 // Admin: Download all resumes
