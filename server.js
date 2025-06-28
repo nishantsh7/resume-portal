@@ -94,11 +94,18 @@ const verifyToken = (req, res, next) => {
 
 // Middleware to check admin role
 const requireAdmin = (req, res, next) => {
-    if (req.userRole !== 'admin') {
+    if (req.userRole !== 'admin' ) {
         return res.status(403).json({ error: 'Admin access required' });
     }
     next();
 };
+
+const requireRecruiter=(req,res,next)=>{
+    if(req.userRole !== 'recruiter'){
+        return res.status(403).json({ error: 'Recruiter access required' });
+    }
+    next();
+}
 
 async function createAdminUser() {
     try {
@@ -598,6 +605,98 @@ app.get('/api/submission', verifyToken, async (req, res) => {
     }
 });
 
+app.get('/api/recruiter/submissions', verifyToken, requireRecruiter, async (req, res) => {
+  try {
+    // Import the Resume model at the top of your file if not already done
+    // const Resume = require('./models/Resume'); // Adjust path as needed
+
+    // Fetch student submissions
+    const studentSubmissions = await Submission.find().populate('userId', 'email fullName').lean();
+
+    const formattedStudentSubmissions = await Promise.all(
+      studentSubmissions.map(async (sub) => {
+        // Find corresponding resume data by email
+        const resumeData = await Resume.findOne({ 
+          email: sub.email 
+        }).lean();
+        
+        return {
+          type: 'student',
+          fullName: sub.fullName,
+          email: sub.email,
+          mobile: sub.mobileNumber,
+          institution: sub.institution,
+          createdAt: sub.createdAt,
+          tpoName: '',
+          driveLink: `https://drive.google.com/file/d/${sub.resume?.[0]?.driveFileId}/view` || '',
+          status: sub.qualificationStatus || 'pending',
+          downloaded: sub.isDownloaded || false,
+          // Add resume data
+          skills: resumeData?.skills || [],
+          experience: resumeData?.experience || 0,
+          phone: resumeData?.phone || '',
+          linkedIn: resumeData?.linkedIn || '',
+          workExperience: resumeData?.workExperience || [],
+          projects: resumeData?.projects || [],
+          profession: resumeData?.profession || '',
+          _id: sub._id
+        };
+      })
+    );
+
+    // Fetch TPO submissions
+    const tpoSubmissions = await TpoSubmission.find().populate('uploadedBy', 'fullName email').lean();
+
+    const formattedTpoSubmissions = [];
+
+    for (const sub of tpoSubmissions) {
+      for (const resume of sub.resumes) {
+        // Try to find resume data by multiple criteria
+        const resumeData = await Resume.findOne({ 
+        name: resume.studentName
+        }).lean();
+
+        formattedTpoSubmissions.push({
+          type: 'tpo',
+          fullName: resume.studentName,
+          email: resume.email || '',
+          mobile: resume.phone || '',
+          institution: sub.branch || '',
+          createdAt: sub.createdAt,
+          tpoName: sub.uploadedBy?.fullName || '',
+          driveLink: resume.driveViewLink,
+          status: 'pending',
+          downloaded: false,
+          // Add resume data
+          skills: resumeData?.skills || [],
+          experience: resumeData?.experience || 0,
+          phone: resumeData?.phone || '',
+          linkedIn: resumeData?.linkedIn || '',
+          workExperience: resumeData?.workExperience || [],
+          projects: resumeData?.projects || [],
+          profession: resumeData?.profession || '',
+          _id: sub._id
+        });
+      }
+    }
+
+    // Combine & sort by submission date
+    const allSubmissions = [...formattedStudentSubmissions, ...formattedTpoSubmissions].sort(
+      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
+
+    res.json(allSubmissions);
+  } catch (error) {
+    console.error('Error fetching combined submissions:', error);
+    res.status(500).json({ error: 'Failed to fetch submissions.' });
+  }
+});
+
+
+
+
+
+
 
 // Admin: Get all submissions
 app.get('/api/submissions', verifyToken, requireAdmin, async (req, res) => {
@@ -901,20 +1000,58 @@ app.get('/api/download-all-resumes', verifyToken, requireAdmin, async (req, res)
 });
 
 // Download records as Excel (admin only)
-app.get('/api/download-records', verifyToken, requireAdmin, async (req, res) => {
+app.post('/api/download-records', verifyToken, requireAdmin, async (req, res) => {
     try {
-        const submissions = await Submission.find().populate('userId', 'email');
+        
+         const {records}= req.body;
+        if (!Array.isArray(records)) {
+        return res.status(400).json({ error: 'Records must be an array' });
+    }
         
         const workbook = XLSX.utils.book_new();
-        const worksheet = XLSX.utils.json_to_sheet(submissions.map(s => ({
+        const worksheet = XLSX.utils.json_to_sheet(records.map(s => ({
             'Full Name': s.fullName,
             'Email': s.email,
             'Mobile': s.mobileNumber,
             'Institution': s.institution,
-            'Bio': s.bio,
-            'Status': s.qualificationStatus,
-            'Downloaded': s.isDownloaded ? 'Yes' : 'No',
-            'Submission Date': new Date(s.createdAt).toLocaleString()
+            'Profession': s.profession,
+            'TPO Name': s.tpoName || '',
+            'Drive Link': s.driveLink || '',
+            'Submission Date': new Date(s.createdAt).toLocaleDateString('en-GB')
+        })));
+        
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Submissions');
+        
+        const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=submissions.xlsx');
+        res.send(buffer);
+    } catch (error) {
+        console.error('Error downloading records:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+app.post('/api/recruiter/download-records', verifyToken, requireRecruiter, async (req, res) => {
+    try {
+        // const submissions = await Submission.find().populate('userId', 'email');
+        // const tpoSubmissions = await TpoSubmission.find().populate('uploadedBy', 'fullName email').lean();
+        const {records}= req.body;
+        if (!Array.isArray(records)) {
+        return res.status(400).json({ error: 'Records must be an array' });
+    }
+        
+        const workbook = XLSX.utils.book_new();
+        const worksheet = XLSX.utils.json_to_sheet(records.map(s => ({
+            'Full Name': s.fullName,
+            'Email': s.email,
+            'Mobile': s.mobileNumber,
+            'Institution': s.institution,
+            'Profession': s.profession,
+            'TPO Name': s.tpoName || '',
+            'Drive Link': s.driveLink || '',
+            'Submission Date': new Date(s.createdAt).toLocaleDateString('en-GB')
         })));
         
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Submissions');

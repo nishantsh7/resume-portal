@@ -9,15 +9,17 @@ async function downloadAllRecords() {
             alert('Please login again');
             return;
         }
-        if(allSubmissions.length>0) {
-        const response = await fetch('https://resume-portal-907r.onrender.com/api/download-records', {
-            method: 'POST',
+
+       if(allSubmissions.length>0){
+        const response = await fetch('https://resume-portal-907r.onrender.com/api/recruiter/download-records', {
+    method: 'POST',
     headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
     },
     body: JSON.stringify({ records: allSubmissions }) 
 });
+
 
         if (!response.ok) {
             throw new Error('Failed to download records');
@@ -39,10 +41,10 @@ async function downloadAllRecords() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    await loadForAdmin();
+    await loadForRecruiter();
 });
 
-async function loadForAdmin() {
+async function loadForRecruiter() {
     const recentUploadsContainer = document.getElementById("recentUploads");
     if (!recentUploadsContainer) return console.error("Recent uploads container not found.");
 
@@ -55,7 +57,7 @@ async function loadForAdmin() {
     recentUploadsContainer.innerHTML = "<p>Loading recent uploads...</p>";
 
     try {
-        const res = await fetch("https://resume-portal-907r.onrender.com/api/submissions", {
+        const res = await fetch("https://resume-portal-907r.onrender.com/api/recruiter/submissions", {
             method: "GET",
             headers: {
                 "Authorization": `Bearer ${jwtToken}`,

@@ -108,7 +108,7 @@ async function handleLogin(event) {
         else if(data.user.role==='tpo')
             window.location.href='tpo-dashboard.html';
         else 
-        window.location.href='recruiter-dashboard.html';
+        window.location.href='recruiter.html';
 
         
     } catch (error) {

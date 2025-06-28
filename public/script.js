@@ -53,6 +53,8 @@ function initializePage() {
     }
     else if (window.location.pathname.includes('tpo-dashboard.html')&& userRole==='tpo')
         loadRecentUploads();
+    else 
+    loadForRecruiter();
 
 }
 

@@ -63,7 +63,7 @@ const credentials = JSON.parse(decodedKey);
 
 const auth = new google.auth.GoogleAuth({
   credentials: credentials,
-  scopes: ['https://www.googleapis.com/auth/drive.file'],
+  scopes: ['https://www.googleapis.com/auth/drive'],
 });
 
 const drive = google.drive({ version: 'v3', auth });
@@ -93,6 +93,7 @@ async function uploadToGoogleDrive(file, userEmail, userRole) {
         body: bufferStream,
       },
       fields: 'id, webViewLink, name, parents',
+      supportsAllDrives: true
     });
 
     // Share with the user
@@ -147,10 +148,13 @@ async function getRoleBasedFolder(userRole) {
 
   try {
     // Search for existing folder
-    const searchResponse = await drive.files.list({
-      q: `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id, name)',
-    });
+ const searchResponse = await drive.files.list({
+  q: `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+  fields: 'files(id, name)',
+  supportsAllDrives: true,
+  includeItemsFromAllDrives: true
+});
+
 
     let folderId;
     
@@ -177,12 +181,15 @@ async function createRoleFolder(folderName) {
   try {
     // Create folder
     const folderResponse = await drive.files.create({
-      requestBody: {
-        name: folderName,
-        mimeType: 'application/vnd.google-apps.folder',
-      },
-      fields: 'id, name, webViewLink',
-    });
+  requestBody: {
+    name: folderName,
+    mimeType: 'application/vnd.google-apps.folder',
+    parents: [sharedDriveId] // REQUIRED if you're creating folder inside a Shared Drive
+  },
+  fields: 'id, name, webViewLink',
+  supportsAllDrives: true
+});
+
 
     const folderId = folderResponse.data.id;
     console.log(`Created new folder: ${folderName} (ID: ${folderId})`);
